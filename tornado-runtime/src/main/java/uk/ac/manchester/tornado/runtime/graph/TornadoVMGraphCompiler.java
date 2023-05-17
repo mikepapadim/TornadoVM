@@ -51,99 +51,19 @@ import uk.ac.manchester.tornado.runtime.graph.nodes.DependentReadNode;
 import uk.ac.manchester.tornado.runtime.graph.nodes.TaskNode;
 
 public class TornadoVMGraphCompiler {
-    private static HashMap<Class<?>, Byte> dataTypesSize = new HashMap<>();
-
-    static {
-        dataTypesSize.put(byte.class, (byte) 1);
-        dataTypesSize.put(char.class, (byte) 2);
-        dataTypesSize.put(short.class, (byte) 2);
-        dataTypesSize.put(int.class, (byte) 4);
-        dataTypesSize.put(float.class, (byte) 4);
-        dataTypesSize.put(long.class, (byte) 8);
-        dataTypesSize.put(double.class, (byte) 8);
-    }
 
     /**
      * Generate TornadoVM byte-code from a Tornado Task Graph.
      *
-     * @param graph
-     *            TornadoVM execution Graph.
-     * @param context
-     *            TornadoVM execution context.
-     * @param batchSize
-     *            Batch size
+     * @param graph     TornadoVM execution Graph.
+     * @param context   TornadoVM execution context.
+     * @param batchSize Batch size
      * @return {@link TornadoVMGraphCompilationResult}
      */
     public static TornadoVMGraphCompilationResult compile(TornadoGraph graph, TornadoExecutionContext context, long batchSize) {
         return compileContext(graph, context, batchSize);
     }
 
-    private static class BatchSizeMetaData {
-
-        private final int totalChunks;
-        private final int remainingChunkSize;
-        private final short numBytesType;
-
-        BatchSizeMetaData(int totalChunks, int remainingChunkSize, short numBytesType) {
-            this.totalChunks = totalChunks;
-            this.remainingChunkSize = remainingChunkSize;
-            this.numBytesType = numBytesType;
-        }
-
-        private int getTotalChunks() {
-            return totalChunks;
-        }
-
-        private int getRemainingChunkSize() {
-            return remainingChunkSize;
-        }
-
-        private short getNumBytesType() {
-            return numBytesType;
-        }
-    }
-
-    private static BatchSizeMetaData computeChunkSizes(TornadoExecutionContext context, long batchSize) {
-        // Get the size of the batch
-        List<Object> inputObjects = context.getObjects();
-        long totalSize = 0;
-        byte typeSize = 1;
-
-        HashSet<Class<?>> classObjects = new HashSet<>();
-        HashSet<Long> inputSizes = new HashSet<>();
-
-        // XXX: Get a list for all objects
-        for (Object o : inputObjects) {
-            if (o.getClass().isArray()) {
-                Class<?> componentType = o.getClass().getComponentType();
-                if (dataTypesSize.get(componentType) == null) {
-                    throw new TornadoRuntimeException("[UNSUPPORTED] Data type not supported for processing in batches");
-                }
-                long size = Array.getLength(o);
-                typeSize = dataTypesSize.get(componentType);
-                totalSize = size * typeSize;
-
-                classObjects.add(componentType);
-                inputSizes.add(totalSize);
-                if (classObjects.size() > 1) {
-                    throw new TornadoRuntimeException("[UNSUPPORTED] Input objects with different data types not currently supported");
-                }
-                if (inputSizes.size() > 1) {
-                    throw new TornadoRuntimeException("[UNSUPPORTED] Input objects with different sizes not currently supported");
-                }
-            }
-        }
-
-        int totalChunks = (int) (totalSize / batchSize);
-        int remainingChunkSize = (int) (totalSize % batchSize);
-
-        if (Tornado.DEBUG) {
-            System.out.println("Batch Size: " + batchSize);
-            System.out.println("Total chunks: " + totalChunks);
-            System.out.println("remainingChunkSize: " + remainingChunkSize);
-        }
-        return new BatchSizeMetaData(totalChunks, remainingChunkSize, typeSize);
-    }
 
     private static TornadoVMGraphCompilationResult compileContext(TornadoGraph graph, TornadoExecutionContext context, long batchSize) {
         final TornadoVMGraphCompilationResult result = new TornadoVMGraphCompilationResult();
@@ -170,30 +90,10 @@ public class TornadoVMGraphCompiler {
         // Generate Context + BEGIN bytecode
         result.begin(1, tasks.cardinality(), numDepLists + 1);
 
-        BatchSizeMetaData sizeBatch = null;
-        if (batchSize != -1) {
-            sizeBatch = computeChunkSizes(context, batchSize);
-        }
 
         if (batchSize != -1) {
-            // compute in batches
-            long offset = 0;
-            long nthreads = batchSize / sizeBatch.getNumBytesType();
-            for (int i = 0; i < sizeBatch.getTotalChunks(); i++) {
-                offset = (batchSize * i);
-                scheduleAndEmitTornadoVMBytecodes(result, graph, nodeIds, dependencies, offset, batchSize, nthreads);
-            }
-            // Last chunk
-            if (sizeBatch.getRemainingChunkSize() != 0) {
-                offset += (batchSize);
-                nthreads = sizeBatch.getRemainingChunkSize() / sizeBatch.getNumBytesType();
-                long realBatchSize = sizeBatch.getTotalChunks() == 0 ? 0 : sizeBatch.getRemainingChunkSize();
-                long realOffsetSize = sizeBatch.getTotalChunks() == 0 ? 0 : offset;
-                scheduleAndEmitTornadoVMBytecodes(result, graph, nodeIds, dependencies, realOffsetSize, realBatchSize, nthreads);
-            }
-
+            scheduleAndEmitTornadoVMBytecodesWithBatches(result, graph, nodeIds, dependencies, context, batchSize);
         } else {
-            // Generate bytecodes with no batches
             scheduleAndEmitTornadoVMBytecodes(result, graph, nodeIds, dependencies);
         }
 
@@ -208,6 +108,24 @@ public class TornadoVMGraphCompiler {
         result.end();
 
         return result;
+    }
+
+    private static void scheduleAndEmitTornadoVMBytecodesWithBatches(TornadoVMGraphCompilationResult result, TornadoGraph graph, int[] nodeIds, BitSet[] dependencies, TornadoExecutionContext context, long batchSize) {
+        uk.ac.manchester.tornado.runtime.common.BatchMetaData sizeBatch = null;
+        sizeBatch = uk.ac.manchester.tornado.runtime.common.BatchMetaData.computeChunkSizes(context, batchSize);
+        long offset = 0;
+        long nthreads = batchSize / sizeBatch.getNumBytesType();
+        for (int i = 0; i < sizeBatch.getTotalChunks(); i++) {
+            offset = batchSize * i;
+            scheduleAndEmitTornadoVMBytecodes(result, graph, nodeIds, dependencies, offset, batchSize, nthreads);
+        }
+        if (sizeBatch.getRemainingChunkSize() != 0) {
+            offset += batchSize;
+            nthreads = sizeBatch.getRemainingChunkSize() / sizeBatch.getNumBytesType();
+            long realBatchSize = sizeBatch.getTotalChunks() == 0 ? 0 : sizeBatch.getRemainingChunkSize();
+            long realOffsetSize = sizeBatch.getTotalChunks() == 0 ? 0 : offset;
+            scheduleAndEmitTornadoVMBytecodes(result, graph, nodeIds, dependencies, realOffsetSize, realBatchSize, nthreads);
+        }
     }
 
     private static void synchronizeOperationLastByteCode(TornadoVMGraphCompilationResult result, int numDepLists) {
