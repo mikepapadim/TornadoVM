@@ -86,6 +86,14 @@ public class TornadoGraphBuilder {
         return ((ContextOpNode) arg).getContext().getUses().size() != 1 && contextNode.getDeviceIndex() != ((ContextOpNode) arg).getContext().getDeviceIndex();
     }
 
+    /**
+     * Builds a TornadoGraph based on the provided TornadoExecutionContext and ByteBuffer.
+     * The TornadoGraph represents a TornadoGraph for a single TaskGraph.
+     *
+     * @param graphContext The TornadoExecutionContext containing the necessary context for tasks and devices.
+     * @param buffer       The ByteBuffer containing the encoded representation of the graph operations.
+     * @return The constructed TornadoGraph.
+     */
     public static TornadoGraph buildGraph(TornadoExecutionContext graphContext, ByteBuffer buffer) {
         TornadoGraph graph = new TornadoGraph();
         Access[] accesses = null;

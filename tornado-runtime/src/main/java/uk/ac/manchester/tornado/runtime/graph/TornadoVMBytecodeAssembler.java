@@ -32,7 +32,7 @@ import java.util.List;
 import uk.ac.manchester.tornado.runtime.common.RuntimeUtilities;
 import uk.ac.manchester.tornado.runtime.graph.nodes.AbstractNode;
 
-public class TornadoGraphAssembler {
+public class TornadoVMBytecodeAssembler {
 
     /**
      * TornadoVM Bytecode
@@ -42,27 +42,26 @@ public class TornadoGraphAssembler {
         /**
          * Native buffer allocation. If there is not enough space on the target device,
          * then we throw an exception.
-         *
+         * <p>
          * Format:
          *
          * <code>
-         *     ALLOC(dest, numObjects, objects)
+         * ALLOC(dest, numObjects, objects)
          * </code>
          */
         ALLOC((byte) 10),
 
         /**
          * Send data from Host -> Device only in the first execution of a task-graph.
-         *
+         * <p>
          * If there is no ALLOC associated with the TRANSFER_HOST_TO_DEVICE_ONCE-in, an
          * exception is launched.
-         *
+         * <p>
          * Format:
          *
          * <code>
-         *      TRANSFER_HOST_TO_DEVICE_ONCE(obj, src, dest)
+         * TRANSFER_HOST_TO_DEVICE_ONCE(obj, src, dest)
          * </code>
-         *
          */
         TRANSFER_HOST_TO_DEVICE_ONCE((byte) 11),
 
@@ -70,11 +69,11 @@ public class TornadoGraphAssembler {
          * Send data from Host -> Device in every execution of a task-graph. If there is
          * no ALLOC associated with the TRANSFER_HOST_TO_DEVICE_ALWAYS, an exception is
          * launched.
-         *
+         * <p>
          * Format:
          *
          * <code>
-         *     TRANSFER_HOST_TO_DEVICE_ALWAYS(obj, src, dest)
+         * TRANSFER_HOST_TO_DEVICE_ALWAYS(obj, src, dest)
          * </code>
          */
         TRANSFER_HOST_TO_DEVICE_ALWAYS((byte) 12),
@@ -83,11 +82,11 @@ public class TornadoGraphAssembler {
          * Send data from Device -> Host in every execution of the task-graph. If there
          * is no ALLOC associated with the TRANSFER_DEVICE_TO_HOST_ALWAYS, an exception
          * is launched.
-         *
+         * <p>
          * Format:
          *
          * <code>
-         *     TRANSFER_DEVICE_TO_HOST_ALWAYS(obj, src, dest)
+         * TRANSFER_DEVICE_TO_HOST_ALWAYS(obj, src, dest)
          * </code>
          */
         TRANSFER_DEVICE_TO_HOST_ALWAYS((byte) 13),
@@ -101,11 +100,11 @@ public class TornadoGraphAssembler {
          * Compile the code the first iteration that the task-graph is executed and then
          * execute the kernel. If the kernel is already compiled, the kernel is directly
          * launched.
-         *
+         * <p>
          * Format:
          *
          * <code>
-         *     LAUNCH(dep list index)
+         * LAUNCH(dep list index)
          * </code>
          */
         LAUNCH((byte) 15),
@@ -113,22 +112,22 @@ public class TornadoGraphAssembler {
         /**
          * Sync point. The BC interpreter waits for an event to be finished before
          * continuing the execution.
-         *
+         * <p>
          * Format:
          *
          * <code>
-         *     BARRIER <event>
+         * BARRIER <event>
          * </code>
          */
         BARRIER((byte) 16),
 
         /**
          * Initialization of a TornadoVM BC region.
-         *
+         * <p>
          * Format:
          *
          * <code>
-         *     INIT(num contexts, num stacks, num dep lists)
+         * INIT(num contexts, num stacks, num dep lists)
          * </code>
          */
         INIT((byte) 17),
@@ -140,44 +139,44 @@ public class TornadoGraphAssembler {
 
         /**
          * Register an event to be used in a barrier bytecode.
-         *
+         * <p>
          * Format:
          *
          * <code>
-         *     ADD_DEPENDENCY(list index)
+         * ADD_DEPENDENCY(list index)
          * </code>
          */
         ADD_DEPENDENCY((byte) 19),
 
         /**
          * Open an execution context. It needs a context-id (device-id).
-         *
+         * <p>
          * Format:
          *
          * <code>
-         *     CONTEXT(ctx)
+         * CONTEXT(ctx)
          * </code>
          */
         CONTEXT((byte) 20),
 
         /**
          * Close a bytecode region associated with a context.
-         *
+         * <p>
          * Format:
          *
          * <code>
-         *     END(ctx)
+         * END(ctx)
          * </code>
          */
         END((byte) 21),
 
         /**
          * Add a constant value to be used as an argument for a compute-kernel.
-         *
+         * <p>
          * Format:
          *
          * <code>
-         *     PUSH_CONSTANT_ARGUMENT(constant)
+         * PUSH_CONSTANT_ARGUMENT(constant)
          * </code>
          */
         PUSH_CONSTANT_ARGUMENT((byte) 22),
@@ -185,22 +184,22 @@ public class TornadoGraphAssembler {
         /**
          * Add a reference (e.g., a Java array reference) to be used as an argument for
          * a compute-kernel.
-         *
+         * <p>
          * Format:
          *
          * <code>
-         *     PUSH_REFERENCE_ARGUMENT(reference)
+         * PUSH_REFERENCE_ARGUMENT(reference)
          * </code>
          */
         PUSH_REFERENCE_ARGUMENT((byte) 23),
 
         /**
          * De-allocation of a buffer from a device
-         *
+         * <p>
          * Format:
          *
          * <code>
-         *     DEALLOC(obj,dest)
+         * DEALLOC(obj,dest)
          * </code>
          */
         DEALLOC((byte) 24);
@@ -218,7 +217,7 @@ public class TornadoGraphAssembler {
 
     private final ByteBuffer buffer;
 
-    TornadoGraphAssembler(byte[] code) {
+    TornadoVMBytecodeAssembler(byte[] code) {
         buffer = ByteBuffer.wrap(code);
         buffer.order(ByteOrder.LITTLE_ENDIAN);
     }
