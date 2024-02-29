@@ -2,18 +2,18 @@ package uk.ac.manchester.tornado.api.types.tensors;
 
 import java.lang.foreign.MemorySegment;
 
-import uk.ac.manchester.tornado.api.types.arrays.FloatArray;
+import uk.ac.manchester.tornado.api.types.arrays.LongArray;
 
-public non-sealed class FloatTensor extends Tensor {
+public non-sealed class LongTensor extends Tensor {
 
-    private final FloatArray tensorData;
+    private final LongArray tensorData;
 
-    public FloatTensor(Shape shape) {
-        super(shape, DType.FLOAT);
-        this.tensorData = new FloatArray(shape.getSize());
+    public LongTensor(Shape shape) {
+        super(shape, DType.INT64);
+        this.tensorData = new LongArray(shape.getSize());
     }
 
-    public FloatArray getTensorData() {
+    public LongArray getTensorData() {
         return tensorData;
     }
 
@@ -23,12 +23,12 @@ public non-sealed class FloatTensor extends Tensor {
 
     @Override
     public int getSize() {
-        return super.getShape().getSize();
+        return 0;
     }
 
     @Override
     public MemorySegment getSegment() {
-        return tensorData.getSegment();
+        return null;
     }
 
     @Override
@@ -53,7 +53,6 @@ public non-sealed class FloatTensor extends Tensor {
 
     @Override
     public void reshape(Shape newShape) {
-
     }
 
     @Override

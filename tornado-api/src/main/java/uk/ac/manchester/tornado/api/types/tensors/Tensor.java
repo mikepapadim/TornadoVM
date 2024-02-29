@@ -3,26 +3,23 @@ package uk.ac.manchester.tornado.api.types.tensors;
 import java.lang.foreign.MemorySegment;
 
 import uk.ac.manchester.tornado.api.types.arrays.TornadoNativeArray;
-import uk.ac.manchester.tornado.api.types.tensors.dtype.DType;
 
-public abstract sealed class Tensor extends TornadoNativeArray permits FloatTensor, HalfFloatTensor {
-    //
+public abstract sealed class Tensor extends TornadoNativeArray permits FloatTensor, HalfFloatTensor, LongTensor {
     private final Shape shape;
 
     private final DType dtype;
-    private int numberOfElements;
-    private MemorySegment segment;
-    private int arrayHeaderSize;
-    private int baseIndex;
-    private long segmentByteSize;
 
-    public Tensor(Shape shape, DType dtype) {
+    protected Tensor(Shape shape, DType dtype) {
         this.shape = shape;
         this.dtype = dtype;
     }
 
     public Shape getShape() {
         return shape;
+    }
+
+    public DType getDtype() {
+        return dtype;
     }
 
     public abstract int getSize();
@@ -39,5 +36,5 @@ public abstract sealed class Tensor extends TornadoNativeArray permits FloatTens
 
     public abstract void reshape(Shape newShape);
 
-    //    private DType getType()
+    public abstract void slice(Shape slice);
 }
