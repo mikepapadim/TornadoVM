@@ -25,7 +25,7 @@
 package uk.ac.manchester.tornado.drivers.ptx;
 
 import jdk.vm.ci.hotspot.HotSpotJVMCIRuntime;
-import org.graalvm.compiler.options.OptionValues;
+import jdk.graal.compiler.options.OptionValues;
 import uk.ac.manchester.tornado.runtime.TornadoAcceleratorDriver;
 import uk.ac.manchester.tornado.runtime.TornadoDriverProvider;
 import uk.ac.manchester.tornado.runtime.TornadoVMConfigAccess;

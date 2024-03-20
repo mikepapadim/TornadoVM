@@ -10,7 +10,7 @@
  *
  * This code is distributed in the hope that it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
  * version 2 for more details (a copy is included in the LICENSE file that
  * accompanied this code).
  *
@@ -21,9 +21,9 @@
  */
 package uk.ac.manchester.tornado.runtime.graal.phases;
 
-import org.graalvm.compiler.phases.tiers.LowTierContext;
-import org.graalvm.compiler.phases.tiers.TargetProvider;
-import org.graalvm.compiler.phases.util.Providers;
+import jdk.graal.compiler.phases.tiers.LowTierContext;
+import jdk.graal.compiler.phases.tiers.TargetProvider;
+import jdk.graal.compiler.phases.util.Providers;
 import uk.ac.manchester.tornado.runtime.tasks.meta.TaskMetaData;
 
 public class TornadoLowTierContext extends LowTierContext {

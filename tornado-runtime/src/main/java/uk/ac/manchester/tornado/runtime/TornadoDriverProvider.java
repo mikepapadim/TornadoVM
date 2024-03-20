@@ -24,7 +24,7 @@
 package uk.ac.manchester.tornado.runtime;
 
 import jdk.vm.ci.hotspot.HotSpotJVMCIRuntime;
-import org.graalvm.compiler.options.OptionValues;
+import jdk.graal.compiler.options.OptionValues;
 import uk.ac.manchester.tornado.runtime.common.enums.TornadoDrivers;
 
 /**

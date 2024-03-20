@@ -23,7 +23,7 @@
  */
 package uk.ac.manchester.tornado.runtime;
 
-import org.graalvm.compiler.phases.util.Providers;
+import jdk.graal.compiler.phases.util.Providers;
 
 import uk.ac.manchester.tornado.api.TornadoDriver;
 import uk.ac.manchester.tornado.runtime.graal.backend.TornadoBackend;

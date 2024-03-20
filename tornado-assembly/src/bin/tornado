@@ -76,7 +76,7 @@ __TRUFFLE_BASE_OPTIONS__ = "--jvm --polyglot --vm.XX:-UseCompressedOops --vm.XX:
 
 # We do not satisfy the Graal compiler assertions because we only support a subset of the Java specification.
 # This allows us to have the GraalIR in states which normally would be illegal.
-__GRAAL_ENABLE_ASSERTIONS__ = " -ea -da:org.graalvm.compiler... "
+__GRAAL_ENABLE_ASSERTIONS__ = " -ea -da:jdk.graal.compiler... "
 
 
 # ########################################################

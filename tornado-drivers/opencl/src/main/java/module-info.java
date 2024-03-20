@@ -1,6 +1,6 @@
 module tornado.drivers.opencl {
     requires transitive jdk.internal.vm.ci;
-    requires transitive jdk.internal.vm.compiler;
+    requires transitive jdk.graal.compiler;
     requires transitive tornado.api;
     requires transitive tornado.runtime;
     requires tornado.drivers.common;

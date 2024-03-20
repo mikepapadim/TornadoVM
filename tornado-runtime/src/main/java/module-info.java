@@ -3,7 +3,7 @@ open module tornado.runtime {
     requires jdk.unsupported;
 
     requires transitive jdk.internal.vm.ci;
-    requires transitive jdk.internal.vm.compiler;
+    requires transitive jdk.graal.compiler;
     requires transitive tornado.api;
 
     exports uk.ac.manchester.tornado.runtime;
