@@ -1109,8 +1109,7 @@
                                 </arg>
                                 <arg>--add-exports</arg>
                                 <arg>
-                                    jdk.graal.compiler/
-                                    jdk.graal.compilerlir=tornado.runtime,tornado.drivers.common
+                                    jdk.graal.compiler/jdk.graal.compilerlir=tornado.runtime,tornado.drivers.common
                                 </arg>
                                 <arg>--add-exports</arg>
                                 <arg>
@@ -1122,13 +1121,11 @@
                                 </arg>
                                 <arg>--add-exports</arg>
                                 <arg>
-                                    jdk.graal.compiler/
-                                    jdk.graal.compilergraph=tornado.runtime,tornado.drivers.common
+                                    jdk.graal.compiler/jdk.graal.compilergraph=tornado.runtime,tornado.drivers.common
                                 </arg>
                                 <arg>--add-exports</arg>
                                 <arg>
-                                    jdk.graal.compiler/
-                                    jdk.graal.compilergraph.spi=tornado.runtime,tornado.drivers.common
+                                    jdk.graal.compiler/jdk.graal.compilergraph.spi=tornado.runtime,tornado.drivers.common
                                 </arg>
                                 <arg>--add-exports</arg>
                                 <arg>
@@ -1144,15 +1141,13 @@
                                 <arg>jdk.graal.compiler/jdk.graal.compiler.nodeinfo=tornado.runtime</arg>
                                 <arg>--add-exports</arg>
                                 <arg>
-                                    jdk.graal.compiler/
-                                    jdk.graal.compilernodes=tornado.runtime,tornado.drivers.common
+                                    jdk.graal.compiler/jdk.graal.compilernodes=tornado.runtime,tornado.drivers.common
                                 </arg>
                                 <arg>--add-exports</arg>
                                 <arg>jdk.graal.compiler/jdk.graal.compiler.nodes.calc=tornado.runtime</arg>
                                 <arg>--add-exports</arg>
                                 <arg>
-                                    jdk.graal.compiler/
-                                    jdk.graal.compilernodes.spi=tornado.runtime,tornado.drivers.common
+                                    jdk.graal.compiler/jdk.graal.compilernodes.spi=tornado.runtime,tornado.drivers.common
                                 </arg>
                                 <arg>--add-exports</arg>
                                 <arg>jdk.graal.compiler/jdk.graal.compiler.api.runtime=tornado.runtime</arg>
@@ -1496,8 +1491,7 @@
                                 </arg>
                                 <arg>--add-exports</arg>
                                 <arg>
-                                    jdk.graal.compiler/
-                                    jdk.graal.compilerphases.common.inlining=tornado.drivers.opencl
+                                    jdk.graal.compiler/jdk.graal.compilerphases.common.inlining=tornado.drivers.opencl
                                 </arg>
                                 <arg>--add-exports</arg>
                                 <arg>jdk.graal.compiler/jdk.graal.compiler.core.phases=tornado.drivers.opencl
@@ -1772,8 +1766,7 @@
                                 </arg>
                                 <arg>--add-exports</arg>
                                 <arg>
-                                    jdk.graal.compiler/
-                                    jdk.graal.compilerreplacements.classfile=tornado.drivers.spirv
+                                    jdk.graal.compiler/jdk.graal.compilerreplacements.classfile=tornado.drivers.spirv
                                 </arg>
                                 <arg>--add-exports</arg>
                                 <arg>

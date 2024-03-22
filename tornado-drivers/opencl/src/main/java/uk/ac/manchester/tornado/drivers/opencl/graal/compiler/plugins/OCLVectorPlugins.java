@@ -43,7 +43,6 @@ import jdk.graal.compiler.nodes.graphbuilderconf.NodePlugin;
 import jdk.graal.compiler.nodes.java.StoreIndexedNode;
 import jdk.graal.compiler.nodes.memory.address.AddressNode;
 import jdk.graal.compiler.nodes.memory.address.OffsetAddressNode;
-
 import jdk.vm.ci.meta.JavaKind;
 import jdk.vm.ci.meta.ResolvedJavaMethod;
 import jdk.vm.ci.meta.ResolvedJavaType;
@@ -369,10 +368,9 @@ public final class OCLVectorPlugins {
 
     static void registerParameterPlugins(Plugins plugins) {
         plugins.appendParameterPlugin((GraphBuilderTool tool, int index, StampPair stampPair) -> {
-            if (stampPair.getTrustedStamp() instanceof ObjectStamp) {
-                ObjectStamp objStamp = (ObjectStamp) stampPair.getTrustedStamp();
-                if (objStamp.type().getAnnotation(Vector.class) != null) {
-                    OCLKind kind = OCLKind.fromResolvedJavaType(objStamp.type());
+            if (stampPair.getTrustedStamp() instanceof ObjectStamp objectStamp) {
+                if (objectStamp.type().getAnnotation(Vector.class) != null) {
+                    OCLKind kind = OCLKind.fromResolvedJavaType(objectStamp.type());
                     return new ParameterNode(index, StampPair.createSingle(OCLStampFactory.getStampFor(kind)));
                 }
             }

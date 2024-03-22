@@ -41,7 +41,6 @@ import jdk.graal.compiler.printer.GraalDebugHandlersFactory;
 import jdk.graal.compiler.replacements.StandardGraphBuilderPlugins;
 import jdk.graal.compiler.replacements.classfile.ClassfileBytecodeProvider;
 import jdk.graal.compiler.word.WordTypes;
-
 import jdk.vm.ci.common.InitTimer;
 import jdk.vm.ci.hotspot.HotSpotConstantReflectionProvider;
 import jdk.vm.ci.hotspot.HotSpotJVMCIRuntime;
