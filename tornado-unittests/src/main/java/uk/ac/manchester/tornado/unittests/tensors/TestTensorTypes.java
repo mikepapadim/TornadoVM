@@ -38,6 +38,14 @@ import uk.ac.manchester.tornado.unittests.common.TornadoTestBase;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+/**
+ * <p>
+ * How to run?
+ * </p>
+ * <code>
+ * tornado-test -V uk.ac.manchester.tornado.unittests.tensors.TestTensorTypes
+ * </code>
+ */
 public class TestTensorTypes extends TornadoTestBase {
 
     public static void tensorAdditionFloat16(TensorFP16 tensorA, TensorFP16 tensorB, TensorFP16 tensorC) {

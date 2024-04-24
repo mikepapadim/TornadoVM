@@ -28,6 +28,7 @@ import uk.ac.manchester.tornado.api.types.tensors.Shape;
 import uk.ac.manchester.tornado.api.types.tensors.TensorFP32;
 import uk.ac.manchester.tornado.unittests.common.TornadoTestBase;
 
+
 import java.io.BufferedInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -41,6 +42,15 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+
+    /**
+ * <p>
+ * How to run?
+ * </p>
+ * <code>
+ * tornado-test -V uk.ac.manchester.tornado.unittests.tensors.TestTensorAPIWithOnnx
+ * </code>
+ */
 public class TestTensorAPIWithOnnx extends TornadoTestBase {
 
     private final String INPUT_TENSOR_NAME = "data";
