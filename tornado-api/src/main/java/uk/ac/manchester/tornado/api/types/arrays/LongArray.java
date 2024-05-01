@@ -17,6 +17,7 @@
  */
 package uk.ac.manchester.tornado.api.types.arrays;
 
+import static java.lang.foreign.ValueLayout.JAVA_FLOAT;
 import static java.lang.foreign.ValueLayout.JAVA_INT;
 import static java.lang.foreign.ValueLayout.JAVA_LONG;
 
@@ -129,11 +130,7 @@ public final class LongArray extends TornadoNativeArray {
      * @return A new on-heap long array, initialized with the values stored in the {@link LongArray} instance.
      */
     public long[] toHeapArray() {
-        long[] outputArray = new long[getSize()];
-        for (int i = 0; i < getSize(); i++) {
-            outputArray[i] = get(i);
-        }
-        return outputArray;
+        return getSegment().toArray(JAVA_LONG);
     }
 
     /**

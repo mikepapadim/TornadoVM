@@ -131,11 +131,7 @@ public final class FloatArray extends TornadoNativeArray {
      * @return A new on-heap float array, initialized with the values stored in the {@link FloatArray} instance.
      */
     public float[] toHeapArray() {
-        float[] outputArray = new float[getSize()];
-        for (int i = 0; i < getSize(); i++) {
-            outputArray[i] = get(i);
-        }
-        return outputArray;
+        return getSegment().toArray(JAVA_FLOAT);
     }
 
     /**

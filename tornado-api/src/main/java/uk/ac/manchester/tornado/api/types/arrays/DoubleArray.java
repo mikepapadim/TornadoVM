@@ -18,6 +18,7 @@
 package uk.ac.manchester.tornado.api.types.arrays;
 
 import static java.lang.foreign.ValueLayout.JAVA_DOUBLE;
+import static java.lang.foreign.ValueLayout.JAVA_FLOAT;
 import static java.lang.foreign.ValueLayout.JAVA_INT;
 
 import java.lang.foreign.Arena;
@@ -131,11 +132,7 @@ public final class DoubleArray extends TornadoNativeArray {
      * @return A new on-heap double array, initialized with the values stored in the {@link DoubleArray} instance.
      */
     public double[] toHeapArray() {
-        double[] outputArray = new double[getSize()];
-        for (int i = 0; i < getSize(); i++) {
-            outputArray[i] = get(i);
-        }
-        return outputArray;
+        return getSegment().toArray(JAVA_DOUBLE);
     }
 
     /**

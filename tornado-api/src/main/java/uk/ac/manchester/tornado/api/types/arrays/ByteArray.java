@@ -18,6 +18,7 @@
 package uk.ac.manchester.tornado.api.types.arrays;
 
 import static java.lang.foreign.ValueLayout.JAVA_BYTE;
+import static java.lang.foreign.ValueLayout.JAVA_FLOAT;
 import static java.lang.foreign.ValueLayout.JAVA_INT;
 
 import java.lang.foreign.Arena;
@@ -129,11 +130,7 @@ public final class ByteArray extends TornadoNativeArray {
      * @return A new on-heap byte array, initialized with the values stored in the {@link ByteArray} instance.
      */
     public byte[] toHeapArray() {
-        byte[] outputArray = new byte[getSize()];
-        for (int i = 0; i < getSize(); i++) {
-            outputArray[i] = get(i);
-        }
-        return outputArray;
+        return getSegment().toArray(JAVA_BYTE);
     }
 
     /**

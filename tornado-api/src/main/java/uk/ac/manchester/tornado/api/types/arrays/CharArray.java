@@ -18,6 +18,7 @@
 package uk.ac.manchester.tornado.api.types.arrays;
 
 import static java.lang.foreign.ValueLayout.JAVA_CHAR;
+import static java.lang.foreign.ValueLayout.JAVA_FLOAT;
 import static java.lang.foreign.ValueLayout.JAVA_INT;
 
 import java.lang.foreign.Arena;
@@ -142,11 +143,7 @@ public final class CharArray extends TornadoNativeArray {
      * @return A new on-heap char array, initialized with the values stored in the {@link CharArray} instance.
      */
     public char[] toHeapArray() {
-        char[] outputArray = new char[getSize()];
-        for (int i = 0; i < getSize(); i++) {
-            outputArray[i] = get(i);
-        }
-        return outputArray;
+        return getSegment().toArray(JAVA_CHAR);
     }
 
     /**

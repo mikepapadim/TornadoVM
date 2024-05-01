@@ -17,6 +17,7 @@
  */
 package uk.ac.manchester.tornado.api.types.arrays;
 
+import static java.lang.foreign.ValueLayout.JAVA_FLOAT;
 import static java.lang.foreign.ValueLayout.JAVA_INT;
 import static java.lang.foreign.ValueLayout.JAVA_SHORT;
 
@@ -130,11 +131,7 @@ public final class ShortArray extends TornadoNativeArray {
      * @return A new on-heap short array, initialized with the values stored in the {@link ShortArray} instance.
      */
     public short[] toHeapArray() {
-        short[] outputArray = new short[getSize()];
-        for (int i = 0; i < getSize(); i++) {
-            outputArray[i] = get(i);
-        }
-        return outputArray;
+        return getSegment().toArray(JAVA_SHORT);
     }
 
     /**

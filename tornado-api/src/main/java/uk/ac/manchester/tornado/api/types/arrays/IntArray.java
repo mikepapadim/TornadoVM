@@ -17,6 +17,7 @@
  */
 package uk.ac.manchester.tornado.api.types.arrays;
 
+import static java.lang.foreign.ValueLayout.JAVA_FLOAT;
 import static java.lang.foreign.ValueLayout.JAVA_INT;
 
 import java.lang.foreign.Arena;
@@ -128,11 +129,7 @@ public final class IntArray extends TornadoNativeArray {
      * @return A new on-heap int array, initialized with the values stored in the {@link IntArray} instance.
      */
     public int[] toHeapArray() {
-        int[] outputArray = new int[getSize()];
-        for (int i = 0; i < getSize(); i++) {
-            outputArray[i] = get(i);
-        }
-        return outputArray;
+        return getSegment().toArray(JAVA_INT);
     }
 
     /**
