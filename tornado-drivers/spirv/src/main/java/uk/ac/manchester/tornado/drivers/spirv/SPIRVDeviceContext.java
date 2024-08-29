@@ -51,7 +51,7 @@ import uk.ac.manchester.tornado.drivers.spirv.timestamps.TimeStamp;
 import uk.ac.manchester.tornado.runtime.EmptyEvent;
 import uk.ac.manchester.tornado.runtime.common.TornadoInstalledCode;
 import uk.ac.manchester.tornado.runtime.common.TornadoOptions;
-import uk.ac.manchester.tornado.runtime.tasks.meta.TaskMetaData;
+import uk.ac.manchester.tornado.runtime.tasks.meta.TaskDataContext;
 
 /**
  * Class to map a SPIR-V device (Device represented either in LevelZero or an
@@ -149,12 +149,16 @@ public abstract class SPIRVDeviceContext implements TornadoDeviceContext {
         return TornadoRuntimeProvider.getTornadoRuntime().getBackendIndex(SPIRVBackendImpl.class);
     }
 
-    public SPIRVTornadoDevice asMapping() {
+    public SPIRVTornadoDevice toDevice() {
         return tornadoDevice;
     }
 
+    @Override
     public void reset(long executionPlanId) {
-        spirvEventPool.put(executionPlanId, new SPIRVEventPool(TornadoOptions.EVENT_WINDOW));
+        executionIds.remove(executionPlanId);
+        spirvContext.reset(executionPlanId, getDeviceIndex());
+        spirvEventPool.remove(executionPlanId);
+        getMemoryManager().releaseKernelStackFrame(executionPlanId);
         codeCache.reset();
         wasReset = true;
     }
@@ -382,21 +386,21 @@ public abstract class SPIRVDeviceContext implements TornadoDeviceContext {
         return installBinary(result.getMeta(), result.getId(), result.getName(), result.getSPIRVBinary());
     }
 
-    public SPIRVInstalledCode installBinary(TaskMetaData meta, String id, String entryPoint, byte[] code) {
+    public SPIRVInstalledCode installBinary(TaskDataContext meta, String id, String entryPoint, byte[] code) {
         return codeCache.installSPIRVBinary(meta, id, entryPoint, code);
     }
 
-    public SPIRVInstalledCode installBinary(TaskMetaData meta, String id, String entryPoint, String pathToFile) {
+    public SPIRVInstalledCode installBinary(TaskDataContext meta, String id, String entryPoint, String pathToFile) {
         return codeCache.installSPIRVBinary(meta, id, entryPoint, pathToFile);
     }
 
     public boolean isCached(String id, String entryPoint) {
-        return codeCache.isCached(STR."\{id}-\{entryPoint}");
+        return codeCache.isCached(id + "-" + entryPoint);
     }
 
     @Override
     public boolean isCached(String methodName, SchedulableTask task) {
-        return codeCache.isCached(STR."\{task.getId()}-\{methodName}");
+        return codeCache.isCached(task.getId() + "-" + methodName);
     }
 
     public SPIRVInstalledCode getInstalledCode(String id, String entryPoint) {

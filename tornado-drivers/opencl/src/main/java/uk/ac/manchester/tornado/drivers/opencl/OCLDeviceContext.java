@@ -50,7 +50,7 @@ import uk.ac.manchester.tornado.drivers.opencl.power.OCLNvidiaPowerMetric;
 import uk.ac.manchester.tornado.drivers.opencl.runtime.OCLBufferProvider;
 import uk.ac.manchester.tornado.drivers.opencl.runtime.OCLTornadoDevice;
 import uk.ac.manchester.tornado.runtime.common.TornadoOptions;
-import uk.ac.manchester.tornado.runtime.tasks.meta.TaskMetaData;
+import uk.ac.manchester.tornado.runtime.tasks.meta.TaskDataContext;
 
 public class OCLDeviceContext implements OCLDeviceContextInterface {
 
@@ -513,11 +513,21 @@ public class OCLDeviceContext implements OCLDeviceContextInterface {
     public void reset(long executionPlanId) {
         OCLEventPool eventPool = getOCLEventPool(executionPlanId);
         eventPool.reset();
+        oclEventPool.remove(executionPlanId);
+        OCLCommandQueueTable table = commandQueueTable.get(executionPlanId);
+        if (table != null) {
+            table.cleanup(device);
+            if (table.size() == 0) {
+                commandQueueTable.remove(executionPlanId);
+            }
+            executionIDs.remove(executionPlanId);
+        }
+        getMemoryManager().releaseKernelStackFrame(executionPlanId);
         codeCache.reset();
         wasReset = true;
     }
 
-    public OCLTornadoDevice asMapping() {
+    public OCLTornadoDevice toDevice() {
         return new OCLTornadoDevice(context.getPlatformIndex(), device.getIndex());
     }
 
@@ -620,7 +630,7 @@ public class OCLDeviceContext implements OCLDeviceContextInterface {
     }
 
     @Override
-    public OCLInstalledCode installCode(TaskMetaData meta, String id, String entryPoint, byte[] code) {
+    public OCLInstalledCode installCode(TaskDataContext meta, String id, String entryPoint, byte[] code) {
         entryPoint = checkKernelName(entryPoint);
         return codeCache.installSource(meta, id, entryPoint, code);
     }
@@ -633,13 +643,13 @@ public class OCLDeviceContext implements OCLDeviceContextInterface {
     @Override
     public boolean isCached(String id, String entryPoint) {
         entryPoint = checkKernelName(entryPoint);
-        return codeCache.isCached(STR."\{id}-\{entryPoint}");
+        return codeCache.isCached(id + "-" + entryPoint);
     }
 
     @Override
     public boolean isCached(String methodName, SchedulableTask task) {
         methodName = checkKernelName(methodName);
-        return codeCache.isCached(STR."\{task.getId()}-\{methodName}");
+        return codeCache.isCached(task.getId() + "-" + methodName);
     }
 
     public OCLInstalledCode getInstalledCode(String id, String entryPoint) {

@@ -13,7 +13,7 @@
  *
  * This code is distributed in the hope that it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
  * version 2 for more details (a copy is included in the LICENSE file that
  * accompanied this code).
  *
@@ -58,13 +58,12 @@ import jdk.graal.compiler.nodes.spi.CoreProviders;
 import jdk.graal.compiler.options.OptionValues;
 import jdk.vm.ci.code.Register;
 import jdk.vm.ci.meta.ResolvedJavaMethod;
-
 import uk.ac.manchester.tornado.api.exceptions.TornadoInternalError;
 import uk.ac.manchester.tornado.drivers.common.logging.Logger;
 import uk.ac.manchester.tornado.drivers.opencl.graal.compiler.OCLBlockVisitor;
 import uk.ac.manchester.tornado.drivers.spirv.SPIRVDeviceContext;
 import uk.ac.manchester.tornado.drivers.spirv.graal.asm.SPIRVAssembler;
-import uk.ac.manchester.tornado.runtime.tasks.meta.TaskMetaData;
+import uk.ac.manchester.tornado.runtime.tasks.meta.TaskDataContext;
 
 public class SPIRVCompilationResultBuilder extends CompilationResultBuilder {
 
@@ -78,7 +77,7 @@ public class SPIRVCompilationResultBuilder extends CompilationResultBuilder {
 
     public SPIRVCompilationResultBuilder(CoreProviders providers, FrameMap frameMap, Assembler asm, DataBuilder dataBuilder, FrameContext frameContext, OptionValues options, DebugContext debug,
             CompilationResult compilationResult, LIR lir) {
-        super(providers, frameMap, asm, dataBuilder, frameContext, options, debug, compilationResult,   Register.None, EconomicMap.create(Equivalence.DEFAULT), NO_VERIFIERS, lir);
+        super(providers, frameMap, asm, dataBuilder, frameContext, options, debug, compilationResult, Register.None, EconomicMap.create(Equivalence.DEFAULT), NO_VERIFIERS, lir);
 
         nonInlinedMethods = new HashSet<>();
     }
@@ -164,7 +163,8 @@ public class SPIRVCompilationResultBuilder extends CompilationResultBuilder {
         }
     }
 
-    private void rescheduleBasicBlock(HIRBlock basicBlock, uk.ac.manchester.tornado.drivers.spirv.graal.compiler.SPIRVBlockVisitor visitor, HashSet<HIRBlock> visited, HashMap<HIRBlock, HIRBlock> pending) {
+    private void rescheduleBasicBlock(HIRBlock basicBlock, uk.ac.manchester.tornado.drivers.spirv.graal.compiler.SPIRVBlockVisitor visitor, HashSet<HIRBlock> visited,
+            HashMap<HIRBlock, HIRBlock> pending) {
         HIRBlock block = pending.get(basicBlock);
         visitor.enter(block);
         visitor.exit(block);
@@ -210,15 +210,16 @@ public class SPIRVCompilationResultBuilder extends CompilationResultBuilder {
      * control Split (due to nested control-flow).
      *
      * @param basicBlock
-     *            {@link HIRBlock}
+     *     {@link HIRBlock}
      * @param visitor
-     *            {@link OCLBlockVisitor}
+     *     {@link OCLBlockVisitor}
      * @param visited
-     *            {@link HashSet}
+     *     {@link HashSet}
      * @param pending
-     *            {@link HashMap}
+     *     {@link HashMap}
      */
-    private void rescheduleTrueBranchConditionsIfNeeded(HIRBlock basicBlock, uk.ac.manchester.tornado.drivers.spirv.graal.compiler.SPIRVBlockVisitor visitor, HashSet<HIRBlock> visited, HashMap<HIRBlock, HIRBlock> pending) {
+    private void rescheduleTrueBranchConditionsIfNeeded(HIRBlock basicBlock, uk.ac.manchester.tornado.drivers.spirv.graal.compiler.SPIRVBlockVisitor visitor, HashSet<HIRBlock> visited,
+            HashMap<HIRBlock, HIRBlock> pending) {
         if (!basicBlock.isLoopHeader() && basicBlock.getDominator() != null && basicBlock.getDominator().getEndNode() instanceof IfNode) {
             IfNode ifNode = (IfNode) basicBlock.getDominator().getEndNode();
             HIRBlock blockTrueBranch = getBlockTrueBranch(basicBlock);
@@ -237,7 +238,8 @@ public class SPIRVCompilationResultBuilder extends CompilationResultBuilder {
         }
     }
 
-    private void traverseControlFlowGraph(HIRBlock basicBlock, uk.ac.manchester.tornado.drivers.spirv.graal.compiler.SPIRVBlockVisitor visitor, HashSet<HIRBlock> visited, HashMap<HIRBlock, HIRBlock> pending) {
+    private void traverseControlFlowGraph(HIRBlock basicBlock, uk.ac.manchester.tornado.drivers.spirv.graal.compiler.SPIRVBlockVisitor visitor, HashSet<HIRBlock> visited,
+            HashMap<HIRBlock, HIRBlock> pending) {
 
         if (pending.containsKey(basicBlock) && !visited.contains(pending.get(basicBlock))) {
             rescheduleBasicBlock(basicBlock, visitor, visited, pending);
@@ -357,8 +359,8 @@ public class SPIRVCompilationResultBuilder extends CompilationResultBuilder {
         nonInlinedMethods.add(targetMethod);
     }
 
-    public TaskMetaData getTaskMetaData() {
-        return ((uk.ac.manchester.tornado.drivers.spirv.graal.compiler.SPIRVCompilationResult) compilationResult).getMeta();
+    public TaskDataContext getTaskMetaData() {
+        return ((SPIRVCompilationResult) compilationResult).getMeta();
     }
 
 }

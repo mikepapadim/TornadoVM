@@ -30,6 +30,7 @@ import java.lang.foreign.MemorySegment;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -91,7 +92,7 @@ import uk.ac.manchester.tornado.runtime.sketcher.Sketch;
 import uk.ac.manchester.tornado.runtime.sketcher.TornadoSketcher;
 import uk.ac.manchester.tornado.runtime.tasks.CompilableTask;
 import uk.ac.manchester.tornado.runtime.tasks.PrebuiltTask;
-import uk.ac.manchester.tornado.runtime.tasks.meta.TaskMetaData;
+import uk.ac.manchester.tornado.runtime.tasks.meta.TaskDataContext;
 
 public class PTXTornadoDevice implements TornadoXPUDevice {
 
@@ -156,7 +157,7 @@ public class PTXTornadoDevice implements TornadoXPUDevice {
         return switch (task) {
             case CompilableTask _ -> compileTask(task);
             case PrebuiltTask _ -> compilePreBuiltTask(task);
-            default -> throw new TornadoInternalError(STR."task of unknown type: \{task.getClass().getSimpleName()}");
+            default -> throw new TornadoInternalError("task of unknown type: " + task.getClass().getSimpleName());
         };
     }
 
@@ -169,7 +170,7 @@ public class PTXTornadoDevice implements TornadoXPUDevice {
         final Sketch sketch = TornadoSketcher.lookup(resolvedMethod, task.meta().getBackendIndex(), task.meta().getDeviceIndex());
 
         // copy meta data into task
-        final TaskMetaData taskMeta = executable.meta();
+        final TaskDataContext taskMeta = executable.meta();
         final Access[] sketchAccess = sketch.getArgumentsAccess();
         final Access[] taskAccess = taskMeta.getArgumentsAccess();
         System.arraycopy(sketchAccess, 0, taskAccess, 0, sketchAccess.length);
@@ -554,7 +555,7 @@ public class PTXTornadoDevice implements TornadoXPUDevice {
     @Override
     public void clean() {
         // Reset only the execution plans attached to the PTX backend.
-        Set<Long> ids = device.getPTXContext().getDeviceContext().getRegisteredPlanIds();
+        Set<Long> ids = new HashSet<>(device.getPTXContext().getDeviceContext().getRegisteredPlanIds());
         ids.forEach(id -> device.getPTXContext().getDeviceContext().reset(id));
         ids.clear();
         disableProfilerOptions();
@@ -567,7 +568,7 @@ public class PTXTornadoDevice implements TornadoXPUDevice {
 
     @Override
     public String getDeviceName() {
-        return STR."cuda-\{device.getDeviceIndex()}";
+        return "cuda-" + device.getDeviceIndex();
     }
 
     @Override
@@ -635,7 +636,7 @@ public class PTXTornadoDevice implements TornadoXPUDevice {
     }
 
     @Override
-    public int getDriverIndex() {
+    public int getBackendIndex() {
         return TornadoCoreRuntime.getTornadoRuntime().getBackendIndex(PTXBackendImpl.class);
     }
 
@@ -676,7 +677,7 @@ public class PTXTornadoDevice implements TornadoXPUDevice {
 
     @Override
     public String toString() {
-        return STR."\{getPlatformName()} -- \{device.getDeviceName()}";
+        return getPlatformName() + " -- " + device.getDeviceName();
     }
 
 }

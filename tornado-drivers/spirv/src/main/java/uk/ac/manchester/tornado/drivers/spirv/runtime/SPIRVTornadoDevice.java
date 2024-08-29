@@ -26,6 +26,7 @@ package uk.ac.manchester.tornado.drivers.spirv.runtime;
 import java.lang.foreign.MemorySegment;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -54,7 +55,6 @@ import uk.ac.manchester.tornado.drivers.spirv.SPIRVBackend;
 import uk.ac.manchester.tornado.drivers.spirv.SPIRVBackendImpl;
 import uk.ac.manchester.tornado.drivers.spirv.SPIRVDevice;
 import uk.ac.manchester.tornado.drivers.spirv.SPIRVDeviceContext;
-import uk.ac.manchester.tornado.drivers.spirv.SPIRVRuntimeImpl;
 import uk.ac.manchester.tornado.drivers.spirv.graal.SPIRVProviders;
 import uk.ac.manchester.tornado.drivers.spirv.graal.compiler.SPIRVCompilationResult;
 import uk.ac.manchester.tornado.drivers.spirv.graal.compiler.SPIRVCompiler;
@@ -82,7 +82,7 @@ import uk.ac.manchester.tornado.runtime.sketcher.Sketch;
 import uk.ac.manchester.tornado.runtime.sketcher.TornadoSketcher;
 import uk.ac.manchester.tornado.runtime.tasks.CompilableTask;
 import uk.ac.manchester.tornado.runtime.tasks.PrebuiltTask;
-import uk.ac.manchester.tornado.runtime.tasks.meta.TaskMetaData;
+import uk.ac.manchester.tornado.runtime.tasks.meta.TaskDataContext;
 
 /**
  * This is the core class for the actual runtime.
@@ -93,12 +93,6 @@ public class SPIRVTornadoDevice implements TornadoXPUDevice {
     private final SPIRVDevice device;
     private final int deviceIndex;
     private final int platformIndex;
-
-    public SPIRVTornadoDevice(int platformIndex, int deviceIndex) {
-        this.platformIndex = platformIndex;
-        this.deviceIndex = deviceIndex;
-        device = SPIRVRuntimeImpl.getInstance().getPlatform(platformIndex).getDevice(deviceIndex);
-    }
 
     public SPIRVTornadoDevice(SPIRVDevice lowLevelDevice) {
         this.platformIndex = lowLevelDevice.getPlatformIndex();
@@ -162,7 +156,7 @@ public class SPIRVTornadoDevice implements TornadoXPUDevice {
         final Sketch sketch = TornadoSketcher.lookup(resolvedMethod, task.meta().getBackendIndex(), task.meta().getDeviceIndex());
 
         // copy meta data into task
-        final TaskMetaData taskMeta = task.meta();
+        final TaskDataContext taskMeta = task.meta();
 
         // Return the code from the cache
         if (!task.shouldCompile() && deviceContext.isCached(task.getId(), resolvedMethod.getName())) {
@@ -193,7 +187,7 @@ public class SPIRVTornadoDevice implements TornadoXPUDevice {
             logger.fatal("Unable to compile %s for device %s\n", task.getId(), getDeviceName());
             logger.fatal("Exception occurred when compiling %s\n", task.getMethod().getName());
             if (TornadoOptions.RECOVER_BAILOUT) {
-                throw new TornadoBailoutRuntimeException(STR."[Error During the Task Compilation]: \{e.getMessage()}");
+                throw new TornadoBailoutRuntimeException("[Error During the Task Compilation]: " + e.getMessage());
             } else {
                 throw e;
             }
@@ -296,7 +290,7 @@ public class SPIRVTornadoDevice implements TornadoXPUDevice {
                 if (RuntimeUtilities.isPrimitiveArray(componentType)) {
                     return createMultiArrayWrapper(componentType, type, deviceContext, batchSize);
                 } else {
-                    throw new TornadoRuntimeException(STR."Multi-dimensional array of type \{type.getName()} not implemented.");
+                    throw new TornadoRuntimeException("Multi-dimensional array of type " + type.getName() + " not implemented.");
                 }
             }
         } else if (!type.isPrimitive()) {
@@ -486,7 +480,7 @@ public class SPIRVTornadoDevice implements TornadoXPUDevice {
 
     @Override
     public void clean() {
-        Set<Long> ids = device.getDeviceContext().getRegisteredPlanIds();
+        Set<Long> ids = new HashSet<>(device.getDeviceContext().getRegisteredPlanIds());
         ids.forEach(id -> device.getDeviceContext().reset(id));
         ids.clear();
         disableProfilerOptions();
@@ -563,7 +557,7 @@ public class SPIRVTornadoDevice implements TornadoXPUDevice {
     }
 
     @Override
-    public int getDriverIndex() {
+    public int getBackendIndex() {
         return TornadoCoreRuntime.getTornadoRuntime().getBackendIndex(SPIRVBackendImpl.class);
     }
 
