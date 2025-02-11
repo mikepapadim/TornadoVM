@@ -29,3 +29,5 @@ tornado-runtime/target/
 tornado.iml
 tornado_unittests.log
 OpenCL-Headers/
+
+.qodo

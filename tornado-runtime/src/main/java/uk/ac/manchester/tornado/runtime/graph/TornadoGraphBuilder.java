@@ -45,6 +45,7 @@ import uk.ac.manchester.tornado.runtime.graph.nodes.CopyOutNode;
 import uk.ac.manchester.tornado.runtime.graph.nodes.DeallocateNode;
 import uk.ac.manchester.tornado.runtime.graph.nodes.DependentReadNode;
 import uk.ac.manchester.tornado.runtime.graph.nodes.ObjectNode;
+import uk.ac.manchester.tornado.runtime.graph.nodes.PersistentNode;
 import uk.ac.manchester.tornado.runtime.graph.nodes.StreamInNode;
 import uk.ac.manchester.tornado.runtime.graph.nodes.TaskNode;
 import uk.ac.manchester.tornado.runtime.sketcher.Sketch;
@@ -73,6 +74,15 @@ public class TornadoGraphBuilder {
         persistNode.addValue((ObjectNode) arg);
     }
 
+    private static void createPersistentNode(ContextNode context, TornadoGraph graph, AbstractNode arg, AbstractNode[] args, int argIndex, AllocateMultipleBuffersNode persistNode) {
+        final PersistentNode persistantNode = new PersistentNode(context);
+        persistantNode.setValue((ObjectNode) arg);
+        graph.add(persistantNode);
+        context.addUse(persistantNode);
+        args[argIndex] = persistantNode;
+        persistNode.addValue((ObjectNode) arg);
+    }
+
     private static void createCopyInNode(ContextNode context, TornadoGraph graph, AbstractNode arg, AbstractNode[] args, int argIndex, AllocateMultipleBuffersNode persistNode) {
         final CopyInNode copyInNode = new CopyInNode(context);
         copyInNode.setValue((ObjectNode) arg);
@@ -82,6 +92,15 @@ public class TornadoGraphBuilder {
         persistNode.addValue((ObjectNode) arg);
     }
 
+    /**
+     * Determines whether a shared object copy should be performed based on the usage count
+     * of the context and the device index comparison.
+     *
+     * @param arg          The {@code AbstractNode} to be checked, expected to be an instance of {@code ContextOpNode}.
+     * @param contextNode  The context node providing device index information.
+     * @return {@code true} if the shared object copy should be performed; {@code false} otherwise.
+     * @throws ClassCastException if {@code arg} is not an instance of {@code ContextOpNode}.
+     */
     private static boolean shouldPerformSharedObjectCopy(AbstractNode arg, ContextNode contextNode) {
         return ((ContextOpNode) arg).getContext().getUses().size() != 1 && contextNode.getDeviceIndex() != ((ContextOpNode) arg).getContext().getDeviceIndex();
     }
@@ -140,14 +159,25 @@ public class TornadoGraphBuilder {
 
                 final AbstractNode arg = objectNodes[variableIndex];
                 if (!(arg instanceof ContextOpNode)) {
-                    if (Objects.requireNonNull(accesses)[argIndex] == Access.WRITE_ONLY) {
-                        createAllocateNode(context, graph, arg, args, argIndex, persist);
+                    if (Objects.requireNonNull(accesses)[argIndex] == Access.WRITE_ONLY ) {
+                        final ObjectNode objectNode = (ObjectNode) arg;
+                        final LocalObjectState state = states.get(objectNode.getIndex());
+                        System.out.println(" YYY " + state.isOnDevice() + " " + state.getObject().toString());
+                        if (state.isOnDevice()) {
+                            System.out.println("Xxxx i kept on device");
+                            createPersistentNode(context, graph, arg, objectNodes, argIndex, persist);
+                        } else {
+                            createAllocateNode(context, graph, arg, args, argIndex, persist);
+                        }
                     } else {
                         final ObjectNode objectNode = (ObjectNode) arg;
                         final LocalObjectState state = states.get(objectNode.getIndex());
                         if (state.isStreamIn()) {
                             createStreamInNode(context, graph, objectNode, args, argIndex, persist);
-                        } else {
+                        } else if (state.isOnDevice()){
+                            System.out.println("Keep On Device " + objectNode.getIndex());
+                            createPersistentNode(context, graph, objectNode, args, argIndex, persist);
+                        }else {
                             createCopyInNode(context, graph, arg, args, argIndex, persist);
                         }
                     }

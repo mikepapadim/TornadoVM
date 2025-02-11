@@ -98,6 +98,8 @@ public sealed class TornadoExecutionPlan implements AutoCloseable permits Execut
 
     protected List<TornadoExecutionResult> planResults;
 
+    protected List<Object> commonObjects;
+
     /**
      * Create an Execution Plan: Object to create and optimize an execution plan for
      * running a set of immutable tasks-graphs. An executor plan contains an
@@ -114,6 +116,16 @@ public sealed class TornadoExecutionPlan implements AutoCloseable permits Execut
         executionFrame = new ExecutorFrame(id);
         rootNode = this;
         planResults = new ArrayList<>();
+        commonObjects  = tornadoExecutor.getPersistentInputs();
+        printPersistent();
+    }
+
+    void printPersistent() {
+        int i = 0;
+        for (Object o : commonObjects) {
+            System.out.println("xxxx: " + o  + " " + i);
+            i++;
+        }
     }
 
     /**

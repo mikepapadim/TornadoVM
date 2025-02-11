@@ -166,6 +166,10 @@ public class ImmutableTaskGraph {
         return taskGraph.getOutputs();
     }
 
+    Collection<?> getPersistantInputs() {
+        return taskGraph.getPersistentInputs();
+    }
+
     void enableProfiler(ProfilerMode profilerMode) {
         taskGraph.enableProfiler(profilerMode);
     }

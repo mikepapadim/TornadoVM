@@ -173,6 +173,7 @@ public class TornadoTaskGraph implements TornadoTaskGraphInterface {
     private List<TaskPackage> taskPackages;
     private List<Object> streamOutObjects;
     private List<Object> streamInObjects;
+    private List<Object> persistentObjects;
 
     private Set<Object> argumentsLookUp;
 
@@ -223,6 +224,7 @@ public class TornadoTaskGraph implements TornadoTaskGraphInterface {
         streamInObjects = new ArrayList<>();
         inputModesObjects = new ArrayList<>();
         outputModeObjects = new ArrayList<>();
+        persistentObjects = new ArrayList<>();
     }
 
     static void performStreamInObject(TaskGraph task, Object inputObject, final int dataTransferMode) {
@@ -402,6 +404,7 @@ public class TornadoTaskGraph implements TornadoTaskGraphInterface {
         newTaskGraph.inputModesObjects = Collections.unmodifiableList(this.inputModesObjects);
         newTaskGraph.streamInObjects = Collections.unmodifiableList(this.streamInObjects);
         newTaskGraph.outputModeObjects = Collections.unmodifiableList(this.outputModeObjects);
+        newTaskGraph.persistentObjects = Collections.unmodifiableList(this.persistentObjects);
 
         newTaskGraph.streamOutObjects = Collections.unmodifiableList(this.streamOutObjects);
         newTaskGraph.hlBuffer = this.hlBuffer;
@@ -430,6 +433,11 @@ public class TornadoTaskGraph implements TornadoTaskGraphInterface {
     @Override
     public Collection<?> getOutputs() {
         return streamOutObjects;
+    }
+
+    @Override
+    public Collection<?> getPersistentInputs() {
+        return persistentObjects;
     }
 
     @Override
@@ -958,10 +966,38 @@ public class TornadoTaskGraph implements TornadoTaskGraphInterface {
                 isObjectForStreaming = true;
             }
 
+
             executionContext.getLocalStateObject(parameter).setStreamIn(isObjectForStreaming);
 
             // List of input objects for the dynamic reconfiguration
             inputModesObjects.add(new StreamingObject(mode, parameter));
+
+            if (TornadoOptions.isReusedBuffersEnabled()) {
+                if (!argumentsLookUp.contains(parameter)) {
+                    lockObjectsInMemory(parameter);
+                }
+            }
+
+            argumentsLookUp.add(parameter);
+        }
+    }
+
+    @Override
+    public void useFromDevice(Object ...objects) {
+        for (Object parameter : objects) {
+            if (parameter == null) {
+                throw new TornadoRuntimeException("[ERROR] null object passed into streamIn() in schedule " + executionContext.getId());
+            } else if (parameter instanceof Number) {
+                throw new TornadoRuntimeException("[ERROR] null object passed into streamIn() in schedule " + executionContext.getId());
+            }
+
+
+            //HERE SHOULD CHECK AT EXECUTION PLAN LEVEL TO THROW AN EXCEPTION!!!!
+
+
+            executionContext.getLocalStateObject(parameter).setOnDevice(true);
+//            persistentObjects.add(parameter);
+
 
             if (TornadoOptions.isReusedBuffersEnabled()) {
                 if (!argumentsLookUp.contains(parameter)) {
@@ -996,6 +1032,8 @@ public class TornadoTaskGraph implements TornadoTaskGraphInterface {
             // If the object mode is set to LAST then we *only* insert it in the lookup
             // hash-set.
             if (mode != DataTransferMode.UNDER_DEMAND) {
+                //add as persistant -> it means that in theory when executing b after a the parameter will be on the device
+                persistentObjects.add(functionParameter);
                 streamOutObjects.add(functionParameter);
                 executionContext.getLocalStateObject(functionParameter).setStreamOut(true);
             }
@@ -1813,37 +1851,6 @@ public class TornadoTaskGraph implements TornadoTaskGraphInterface {
             return cloneInt.clone();
         } else {
             throw new RuntimeException("Data type cloning not supported");
-        }
-    }
-
-    @SuppressWarnings("unused")
-    private void cloneInputOutputObjects() {
-        final long startSearchProfiler = (TIME_IN_NANOSECONDS) ? System.nanoTime() : System.currentTimeMillis();
-        TornadoBackend tornadoDriver = TornadoCoreRuntime.getTornadoRuntime().getBackend(DEFAULT_DRIVER_INDEX);
-        int numDevices = tornadoDriver.getNumDevices();
-        // Clone objects (only outputs) for each device
-        for (int deviceNumber = 0; deviceNumber < numDevices; deviceNumber++) {
-            ArrayList<Object> newInObjects = new ArrayList<>();
-            ArrayList<Object> newOutObjects = new ArrayList<>();
-
-            for (Object in : streamInObjects) {
-                boolean outputObjectFound = false;
-                for (Object out : streamOutObjects) {
-                    if (in == out) {
-                        outputObjectFound = true;
-                        break;
-                    }
-                }
-                if (outputObjectFound) {
-                    Object clonedObject = cloneObject(in);
-                    newInObjects.add(clonedObject);
-                    newOutObjects.add(clonedObject);
-                } else {
-                    newInObjects.add(in);
-                }
-            }
-            multiHeapManagerInputs.put(deviceNumber, newInObjects);
-            multiHeapManagerOutputs.put(deviceNumber, newOutObjects);
         }
     }
 

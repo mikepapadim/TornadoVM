@@ -684,30 +684,36 @@ public class TaskGraph implements TaskGraphInterface {
         return this;
     }
 
-    /**
-     * Tag a set of objects (Java objects) to be transferred from the device to the
-     * host after the execution completes. There are two modes:
-     *
-     * <p>
-     * {@link uk.ac.manchester.tornado.api.enums.DataTransferMode#EVERY_EXECUTION}:
-     * transfers data for every execution of the task-graph (WRITE only)
-     * </p>
-     *
-     * </p>
-     * {@link uk.ac.manchester.tornado.api.enums.DataTransferMode#UNDER_DEMAND}: it
-     * transfers data only under demand. Data are not transferred unless the
-     * execution-plan, an {@link TornadoExecutionPlan} object, invokes the
-     * `transferToHost` function. This is used for optimization of data transfers.
-     * </p>
-     *
-     * @param mode
-     *     A mode from
-     *     {@link uk.ac.manchester.tornado.api.enums.DataTransferMode}
-     * @param objects
-     *     List of Java objects (usually arrays) to be transferred to the
-     *     device.
-     * @return {@link TaskGraph}
-     */
+    @Override
+    public TaskGraph  useFromDevice(Object ...objects) {
+        taskGraphImpl.useFromDevice(objects);
+        return this;
+    }
+
+        /**
+         * Tag a set of objects (Java objects) to be transferred from the device to the
+         * host after the execution completes. There are two modes:
+         *
+         * <p>
+         * {@link uk.ac.manchester.tornado.api.enums.DataTransferMode#EVERY_EXECUTION}:
+         * transfers data for every execution of the task-graph (WRITE only)
+         * </p>
+         *
+         * </p>
+         * {@link uk.ac.manchester.tornado.api.enums.DataTransferMode#UNDER_DEMAND}: it
+         * transfers data only under demand. Data are not transferred unless the
+         * execution-plan, an {@link TornadoExecutionPlan} object, invokes the
+         * `transferToHost` function. This is used for optimization of data transfers.
+         * </p>
+         *
+         * @param mode
+         *     A mode from
+         *     {@link uk.ac.manchester.tornado.api.enums.DataTransferMode}
+         * @param objects
+         *     List of Java objects (usually arrays) to be transferred to the
+         *     device.
+         * @return {@link TaskGraph}
+         */
     @Override
     public TaskGraph transferToHost(final int mode, Object... objects) {
         taskGraphImpl.transferToHost(mode, objects);
@@ -856,6 +862,10 @@ public class TaskGraph implements TaskGraphInterface {
 
     public Collection<?> getOutputs() {
         return taskGraphImpl.getOutputs();
+    }
+
+    public Collection<?> getPersistentInputs() {
+        return taskGraphImpl.getPersistentInputs();
     }
 
     void enableProfiler(ProfilerMode profilerMode) {

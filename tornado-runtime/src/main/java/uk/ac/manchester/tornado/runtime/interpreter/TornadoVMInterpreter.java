@@ -272,20 +272,29 @@ public class TornadoVMInterpreter {
                 if (isWarmup) {
                     continue;
                 }
+//                if (graphExecutionContext.getId() == "s1") {
+//                    continue;
+//                }
                 lastEvent = executeAlloc(tornadoVMBytecodeList, args, sizeBatch);
             } else if (op == TornadoVMBytecodes.DEALLOC.value()) {
                 final int objectIndex = bytecodeResult.getInt();
                 if (isWarmup) {
                     continue;
                 }
+
                 lastEvent = executeDeAlloc(tornadoVMBytecodeList, objectIndex);
             } else if (op == TornadoVMBytecodes.TRANSFER_HOST_TO_DEVICE_ONCE.value()) {
+                System.out.println("id " + graphExecutionContext.getId());
+
                 final int objectIndex = bytecodeResult.getInt();
                 final int eventList = bytecodeResult.getInt();
                 final long offset = bytecodeResult.getLong();
                 final long sizeBatch = bytecodeResult.getLong();
                 final int[] waitList = (useDependencies && eventList != -1) ? events[eventList] : null;
                 if (isWarmup) {
+                    continue;
+                }
+                if (graphExecutionContext.getId() == "s1") {
                     continue;
                 }
                 transferHostToDeviceOnce(tornadoVMBytecodeList, objectIndex, offset, eventList, sizeBatch, waitList);

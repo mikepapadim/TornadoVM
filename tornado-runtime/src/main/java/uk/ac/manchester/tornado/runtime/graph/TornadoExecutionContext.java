@@ -222,6 +222,7 @@ public class TornadoExecutionContext {
             newLocalObjectState.setStreamIn(oldLocalObjectState.isStreamIn());
             newLocalObjectState.setForceStreamIn(oldLocalObjectState.isForcedStreamIn());
             newLocalObjectState.setStreamOut(oldLocalObjectState.isStreamOut());
+            newLocalObjectState.setOnDevice(oldLocalObjectState.isOnDevice());
 
             index = oldIndex;
             objects.add(index, newObj);

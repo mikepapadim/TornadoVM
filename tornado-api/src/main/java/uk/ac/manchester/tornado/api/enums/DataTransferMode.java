@@ -45,4 +45,5 @@ public class DataTransferMode {
      * method.
      */
     public static final int UNDER_DEMAND = 2;
+
 }

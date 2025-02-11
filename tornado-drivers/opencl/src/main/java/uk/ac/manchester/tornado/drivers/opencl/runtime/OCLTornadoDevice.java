@@ -586,12 +586,18 @@ public class OCLTornadoDevice implements TornadoXPUDevice {
     @Override
     public long allocate(Object object, long batchSize, DeviceBufferState state) {
         final XPUBuffer buffer;
+        //TODO: debug -> not sharing states
         if (state.hasObjectBuffer() && state.isLockedBuffer()) {
+            System.out.println("In locked buffer");
+            System.out.println("State locked: " + state.isLockedBuffer() + " " + state.hasObjectBuffer());
             buffer = state.getXPUBuffer();
+
             if (batchSize != 0) {
                 buffer.setSizeSubRegion(batchSize);
             }
         } else {
+            System.out.println("NO  locked buffer");
+            System.out.println("State no locked: " + state.isLockedBuffer() + " " + state.hasObjectBuffer());
             buffer = newDeviceBufferAllocation(object, batchSize, state);
         }
 

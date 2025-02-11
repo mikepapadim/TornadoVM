@@ -54,6 +54,12 @@ public class LocalObjectState {
     private boolean streamOut;
 
     /**
+     * Identifies a variable (or parameter) it needs to be kept on device
+     *
+     */
+    private boolean isOnDevice;
+
+    /**
      * For each variable, we need to keep track of all devices in which there is a shadow
      * copy. This is achieved by using the {@link DataObjectState} object.
      */
@@ -66,6 +72,7 @@ public class LocalObjectState {
         dataObjectState = new DataObjectState();
         streamIn = false;
         streamOut = false;
+        isOnDevice = false;
     }
 
     public Object getObject() {
@@ -92,8 +99,16 @@ public class LocalObjectState {
         return streamOut;
     }
 
+    public boolean isOnDevice() {
+        return isOnDevice;
+    }
+
     public void setStreamOut(boolean streamOut) {
         this.streamOut = streamOut;
+    }
+
+    public void setOnDevice(boolean onDevice) {
+        this.isOnDevice = onDevice;
     }
 
     public DataObjectState getDataObjectState() {
