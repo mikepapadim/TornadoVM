@@ -72,7 +72,7 @@ public class BlurFilter {
 
         public static final boolean PARALLEL_COMPUTATION = Boolean.parseBoolean(System.getProperty("run:parallel", "True"));
         public static final int FILTER_WIDTH = 31;
-        private static final String IMAGE_FILE = "/tmp/image.jpg";
+        private static final String IMAGE_FILE = "tmp-demo/image.jpg";
         private BufferedImage image;
 
         public BlurFilterImage() {
