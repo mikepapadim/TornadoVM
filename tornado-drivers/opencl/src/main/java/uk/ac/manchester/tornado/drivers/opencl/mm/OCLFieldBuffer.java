@@ -61,7 +61,8 @@ import uk.ac.manchester.tornado.runtime.utils.TornadoUtils;
 
 public class OCLFieldBuffer implements XPUBuffer {
 
-    private static final long BYTES_OBJECT_REFERENCE = 8;
+    private static final long BYTES_OBJECT_REFERENCE =   4 ;  // ✅ Dynamic
+    ;
     private final HotSpotResolvedJavaType resolvedType;
     private final HotSpotResolvedJavaField[] fields;
     private final FieldBuffer[] wrappedFields;
@@ -203,6 +204,21 @@ public class OCLFieldBuffer implements XPUBuffer {
         return result;
     }
 
+//    private void writeFieldToBuffer(int index, Field field, Object obj) {
+//        Class<?> fieldType = field.getType();
+//        if (fieldType.isPrimitive()) {
+//            try {
+//                PrimitiveSerialiser.put(buffer, field.get(obj));
+//            } catch (IllegalArgumentException | IllegalAccessException e) {
+//                shouldNotReachHere("unable to write primitive to buffer: ", e.getMessage());
+//            }
+//        } else if (wrappedFields[index] != null) {
+//            buffer.putLong(wrappedFields[index].getBufferOffset());
+//        } else {
+//            unimplemented("field type %s", fieldType.getName());
+//        }
+//    }
+
     private void writeFieldToBuffer(int index, Field field, Object obj) {
         Class<?> fieldType = field.getType();
         if (fieldType.isPrimitive()) {
@@ -212,7 +228,15 @@ public class OCLFieldBuffer implements XPUBuffer {
                 shouldNotReachHere("unable to write primitive to buffer: ", e.getMessage());
             }
         } else if (wrappedFields[index] != null) {
-            buffer.putLong(wrappedFields[index].getBufferOffset());
+            // OLD: buffer.putLong(wrappedFields[index].getBufferOffset());
+
+            // NEW: Write the correct size based on OOP size
+            long offset = wrappedFields[index].getBufferOffset();
+            if (BYTES_OBJECT_REFERENCE == 4) {
+                buffer.putInt((int) offset);  // 4 bytes for compressed oops
+            } else {
+                buffer.putLong(offset);       // 8 bytes for regular oops
+            }
         } else {
             unimplemented("field type %s", fieldType.getName());
         }
@@ -239,7 +263,14 @@ public class OCLFieldBuffer implements XPUBuffer {
                 shouldNotReachHere("unable to read field: ", e.getMessage());
             }
         } else if (wrappedFields[index] != null) {
-            buffer.getLong();
+            // OLD: buffer.getLong();
+
+            // NEW: Read the correct size based on OOP size
+            if (BYTES_OBJECT_REFERENCE == 4) {
+                buffer.getInt();  // 4 bytes for compressed oops
+            } else {
+                buffer.getLong(); // 8 bytes for regular oops
+            }
         } else {
             unimplemented("field type %s", fieldType.getName());
         }
@@ -262,22 +293,74 @@ public class OCLFieldBuffer implements XPUBuffer {
     private void serialise(Object object) {
         buffer.rewind();
         buffer.position(hubOffset);
+
+        System.err.println("\n=== serialise() START ===");
+        System.err.println("Object class: " + object.getClass().getName());
+        System.err.println("Buffer capacity: " + buffer.capacity());
+        System.err.println("hubOffset: " + hubOffset);
+        System.err.println("fields.length: " + fields.length);
+
         buffer.putLong(0);
+        System.err.println("After putLong(0), position: " + buffer.position());
 
         if (fields.length > 0) {
+            System.err.println("First field offset: " + fields[0].getOffset());
             buffer.position(fields[0].getOffset());
+
             for (int i = 0; i < fields.length; i++) {
                 HotSpotResolvedJavaField field = fields[i];
                 Field f = getField(objectType, field.getName());
-                if (DEBUG) {
-                    logger.trace("writing field: name=%s, offset=%d", field.getName(), field.getOffset());
-                }
 
-                buffer.position(field.getOffset());
-                writeFieldToBuffer(i, f, object);
+                System.err.println("\n--- Field " + i + " ---");
+                System.err.println("  Name: " + field.getName());
+                System.err.println("  Offset: " + field.getOffset());
+                System.err.println("  Kind: " + field.getJavaKind());
+                System.err.println("  IsObject: " + field.getJavaKind().isObject());
+                System.err.println("  Buffer position BEFORE: " + buffer.position());
+                System.err.println("  Buffer remaining BEFORE: " + buffer.remaining());
+
+                try {
+                    buffer.position(field.getOffset());
+                    System.err.println("  Set position to: " + field.getOffset());
+                    System.err.println("  Buffer remaining AFTER position set: " + buffer.remaining());
+
+                    writeFieldToBuffer(i, f, object);
+
+                    System.err.println("  Buffer position AFTER write: " + buffer.position());
+                } catch (Exception e) {
+                    System.err.println("  ERROR writing field!");
+                    System.err.println("  Trying to write at offset: " + field.getOffset());
+                    System.err.println("  Buffer capacity: " + buffer.capacity());
+                    System.err.println("  Would need: " + (field.getOffset() +
+                                                                   (field.getJavaKind().isObject() ? 8 : field.getJavaKind().getByteCount())));
+                    throw e;
+                }
             }
         }
+
+        System.err.println("\n=== serialise() END ===");
+        System.err.println("Final position: " + buffer.position());
     }
+
+//    private void serialise(Object object) {
+//        buffer.rewind();
+//        buffer.position(hubOffset);
+//        buffer.putLong(0);
+//
+//        if (fields.length > 0) {
+//            buffer.position(fields[0].getOffset());
+//            for (int i = 0; i < fields.length; i++) {
+//                HotSpotResolvedJavaField field = fields[i];
+//                Field f = getField(objectType, field.getName());
+//                if (DEBUG) {
+//                    logger.trace("writing field: name=%s, offset=%d", field.getName(), field.getOffset());
+//                }
+//
+//                buffer.position(field.getOffset());
+//                writeFieldToBuffer(i, f, object);
+//            }
+//        }
+//    }
 
     private void deserialise(Object object) {
         buffer.rewind();
@@ -433,11 +516,31 @@ public class OCLFieldBuffer implements XPUBuffer {
     }
 
     private long getObjectSize() {
-        long size = fieldsOffset;
+        // WRONG: long size = fieldsOffset;  // This is metadata offset, not object header size!
+
+        // CORRECT: Start with the object header size
+        long size = hubOffset + BYTES_OBJECT_REFERENCE;  // Header + first field
+
         if (fields.length > 0) {
             HotSpotResolvedJavaField field = fields[fields.length - 1];
-            size = field.getOffset() + ((field.getJavaKind().isObject()) ? BYTES_OBJECT_REFERENCE : field.getJavaKind().getByteCount());
+            long fieldSize = (field.getJavaKind().isObject())
+                    ? BYTES_OBJECT_REFERENCE
+                    : field.getJavaKind().getByteCount();
+
+            // The object size extends to cover the last field
+            size = field.getOffset() + fieldSize;
+
+            if (DEBUG) {
+                System.err.println("=== OCLFieldBuffer.getObjectSize() ===");
+                System.err.println("hubOffset: " + hubOffset);
+                System.err.println("Last field offset: " + field.getOffset());
+                System.err.println("Last field isObject: " + field.getJavaKind().isObject());
+                System.err.println("Last field size: " + fieldSize);
+                System.err.println("BYTES_OBJECT_REFERENCE: " + BYTES_OBJECT_REFERENCE);
+                System.err.println("Calculated size: " + size);
+            }
         }
+
         return size;
     }
 
