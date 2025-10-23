@@ -58,7 +58,7 @@ import uk.ac.manchester.tornado.runtime.utils.TornadoUtils;
 
 public class CUDAFieldBuffer implements XPUBuffer {
 
-    private static final int BYTES_OBJECT_REFERENCE = 8;
+    private final int BYTES_OBJECT_REFERENCE;
     private final Class<?> type;
     private final PTXDeviceContext deviceContext;
     private long address;
@@ -79,6 +79,7 @@ public class CUDAFieldBuffer implements XPUBuffer {
         this.access = access;
         hubOffset = getVMConfig().hubOffset;
         fieldsOffset = getVMConfig().instanceKlassFieldsOffset();
+        BYTES_OBJECT_REFERENCE = getVMConfig().getObjectReferenceSize();
 
         resolvedType = (HotSpotResolvedJavaType) getVMRuntime().getHostJVMCIBackend().getMetaAccess().lookupJavaType(object.getClass());
 

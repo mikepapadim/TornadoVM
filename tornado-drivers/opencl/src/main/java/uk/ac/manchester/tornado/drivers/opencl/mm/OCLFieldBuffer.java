@@ -61,7 +61,7 @@ import uk.ac.manchester.tornado.runtime.utils.TornadoUtils;
 
 public class OCLFieldBuffer implements XPUBuffer {
 
-    private static final long BYTES_OBJECT_REFERENCE = 8;
+    private final int BYTES_OBJECT_REFERENCE;
     private final HotSpotResolvedJavaType resolvedType;
     private final HotSpotResolvedJavaField[] fields;
     private final FieldBuffer[] wrappedFields;
@@ -84,6 +84,7 @@ public class OCLFieldBuffer implements XPUBuffer {
 
         hubOffset = getVMConfig().hubOffset;
         fieldsOffset = getVMConfig().instanceKlassFieldsOffset();
+        BYTES_OBJECT_REFERENCE = getVMConfig().getObjectReferenceSize();
         resolvedType = (HotSpotResolvedJavaType) getVMRuntime().getHostJVMCIBackend().getMetaAccess().lookupJavaType(objectType);
 
         fields = (HotSpotResolvedJavaField[]) resolvedType.getInstanceFields(false);
@@ -212,7 +213,13 @@ public class OCLFieldBuffer implements XPUBuffer {
                 shouldNotReachHere("unable to write primitive to buffer: ", e.getMessage());
             }
         } else if (wrappedFields[index] != null) {
-            buffer.putLong(wrappedFields[index].getBufferOffset());
+            // Write object reference with the correct size based on compressed OOPs setting
+            long offset = wrappedFields[index].getBufferOffset();
+            if (BYTES_OBJECT_REFERENCE == 4) {
+                buffer.putInt((int) offset);  // 4 bytes for compressed OOPs
+            } else {
+                buffer.putLong(offset);       // 8 bytes for regular OOPs
+            }
         } else {
             unimplemented("field type %s", fieldType.getName());
         }
@@ -239,7 +246,12 @@ public class OCLFieldBuffer implements XPUBuffer {
                 shouldNotReachHere("unable to read field: ", e.getMessage());
             }
         } else if (wrappedFields[index] != null) {
-            buffer.getLong();
+            // Read object reference with the correct size based on compressed OOPs setting
+            if (BYTES_OBJECT_REFERENCE == 4) {
+                buffer.getInt();  // 4 bytes for compressed OOPs
+            } else {
+                buffer.getLong(); // 8 bytes for regular OOPs
+            }
         } else {
             unimplemented("field type %s", fieldType.getName());
         }
@@ -433,11 +445,19 @@ public class OCLFieldBuffer implements XPUBuffer {
     }
 
     private long getObjectSize() {
-        long size = fieldsOffset;
+        // Start with the object header size
+        long size = hubOffset + BYTES_OBJECT_REFERENCE;
+
         if (fields.length > 0) {
             HotSpotResolvedJavaField field = fields[fields.length - 1];
-            size = field.getOffset() + ((field.getJavaKind().isObject()) ? BYTES_OBJECT_REFERENCE : field.getJavaKind().getByteCount());
+            long fieldSize = (field.getJavaKind().isObject())
+                    ? BYTES_OBJECT_REFERENCE
+                    : field.getJavaKind().getByteCount();
+
+            // The object size extends to cover the last field
+            size = field.getOffset() + fieldSize;
         }
+
         return size;
     }
 
