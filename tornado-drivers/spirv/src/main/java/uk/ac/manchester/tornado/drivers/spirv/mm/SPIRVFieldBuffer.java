@@ -61,7 +61,7 @@ import uk.ac.manchester.tornado.runtime.utils.TornadoUtils;
 // FIXME <REFACTOR> This class can be common for the three backends.
 public class SPIRVFieldBuffer implements XPUBuffer {
 
-    private static final int BYTES_OBJECT_REFERENCE = 8;
+    private final int BYTES_OBJECT_REFERENCE;
     private final HotSpotResolvedJavaType resolvedType;
     private final HotSpotResolvedJavaField[] fields;
     private final FieldBuffer[] wrappedFields;
@@ -84,6 +84,7 @@ public class SPIRVFieldBuffer implements XPUBuffer {
 
         hubOffset = getVMConfig().hubOffset;
         fieldsOffset = getVMConfig().instanceKlassFieldsOffset();
+        BYTES_OBJECT_REFERENCE = getVMConfig().getObjectReferenceSize();
         resolvedType = (HotSpotResolvedJavaType) getVMRuntime().getHostJVMCIBackend().getMetaAccess().lookupJavaType(objectType);
 
         fields = (HotSpotResolvedJavaField[]) resolvedType.getInstanceFields(false);

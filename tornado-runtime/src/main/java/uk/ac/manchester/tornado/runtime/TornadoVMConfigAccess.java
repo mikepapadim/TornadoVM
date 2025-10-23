@@ -30,6 +30,7 @@ public class TornadoVMConfigAccess extends HotSpotVMConfigAccess {
 
     public final int hubOffset = getFieldOffset("oopDesc::_metadata._klass", Integer.class, "Klass*");
     private final boolean useCompressedClassPointers = getFlag("UseCompressedClassPointers", Boolean.class);
+    private final boolean useCompressedOops = getFlag("UseCompressedOops", Boolean.class);
     private final int arrayOopDescSize = getFieldValue("CompilerToVM::Data::sizeof_arrayOopDesc", Integer.class, "int");
     private final int narrowKlassSize = getFieldValue("CompilerToVM::Data::sizeof_narrowKlass", Integer.class, "int");
 
@@ -65,6 +66,17 @@ public class TornadoVMConfigAccess extends HotSpotVMConfigAccess {
             }
         }
         return fieldOffset;
+    }
+
+    /**
+     * Returns the size of an object reference in bytes.
+     * When compressed OOPs are enabled, object references are 4 bytes.
+     * Otherwise, they are 8 bytes (the size of a native pointer).
+     *
+     * @return 4 if UseCompressedOops is enabled, 8 otherwise
+     */
+    public int getObjectReferenceSize() {
+        return useCompressedOops ? 4 : 8;
     }
 
 }
