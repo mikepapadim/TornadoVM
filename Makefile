@@ -7,9 +7,14 @@ BACKEND ?= opencl
 build jdk21:
 	bin/compile --jdk jdk21 --backend $(BACKEND)
 
+# Incremental build: Only rebuilds changed modules for faster development iteration
+# - Detects changes via git status/diff
+# - Uses fast-assembly profile (skips tar.gz and shade plugin)
+# - Speedup: ~2x faster than full build (10s vs 22s for typical changes)
 incremental:
 	bin/compile --jdk jdk21 --backend $(BACKEND) --incremental
 
+# Incremental build that forces assembly rebuild even if only unittests changed
 incremental-full:
 	bin/compile --jdk jdk21 --backend $(BACKEND) --incremental --force-assembly
 

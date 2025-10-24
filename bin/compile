@@ -434,7 +434,7 @@ def build_spirv_toolkit_and_level_zero(rebuild=False):
     return current
 
 
-def build_tornadovm(args, backend_profiles, changed_modules=None, include_assembly=True):
+def build_tornadovm(args, backend_profiles, changed_modules=None, include_assembly=True, use_fast_assembly=False):
     """
     Builds TornadoVM with the specified JDK and backend options.
 
@@ -443,6 +443,7 @@ def build_tornadovm(args, backend_profiles, changed_modules=None, include_assemb
         backend_profiles (str): The processed backend options.
         changed_modules (list): Optional list of modules to build. If None, builds all modules.
         include_assembly (bool): Whether to include tornado-assembly module in the build.
+        use_fast_assembly (bool): Whether to use fast-assembly profile (skips tar.gz and shade for dev builds).
 
     Returns:
         CompletedProcess: Result of the Maven build process.
@@ -457,10 +458,16 @@ def build_tornadovm(args, backend_profiles, changed_modules=None, include_assemb
             process = ["mvn", "-T1", "-Dstyle.color=always"]
         else:
             process = ["mvn", "-T1.5C", "-Dstyle.color=always"]
+
+        # Build profile string with fast-assembly for incremental builds
+        profiles = [args.jdk, backend_profiles]
         if args.polyglot:
-            process.append(f"-P{args.jdk},{backend_profiles},graalvm-polyglot")
-        else:
-            process.append(f"-P{args.jdk},{backend_profiles}")
+            profiles.append("graalvm-polyglot")
+        if use_fast_assembly:
+            profiles.append("fast-assembly")
+            print("Using fast-assembly profile (skips tar.gz and shade for faster builds)")
+
+        process.append(f"-P{','.join(profiles)}")
 
         # Add module selection for incremental builds
         if changed_modules is not None and len(changed_modules) > 0:
@@ -674,7 +681,8 @@ def main():
         if rebuild_assembly:
             # Clean the existing distribution directory to avoid permission issues
             clean_dist_for_incremental()
-            mvn_build_result = build_tornadovm(args, backend_profiles, changed_modules, include_assembly=True)
+            # Use fast-assembly profile for incremental builds (skips tar.gz and shade)
+            mvn_build_result = build_tornadovm(args, backend_profiles, changed_modules, include_assembly=True, use_fast_assembly=True)
             # Update paths and generate argfile since distribution changed
             post_installation_actions(
                 backend_profiles, mvn_build_result, args.jdk, graal_jars_status
