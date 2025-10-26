@@ -58,17 +58,29 @@ def check_java_version():
 def pull_graal_jars_if_needed(graal_jars_status):
     """
     Pulls GraalVM jars if the specified JDK version does not contain the binaries.
+    NOTE: This function is now deprecated as Graal JARs are managed by Maven dependencies.
 
     Args:
         jdk (str): The JDK version.
     """
-    if graal_jars_status:
-        pull_graal_jars.main()
+    # Graal JARs are now managed by Maven dependencies in the jdk21 profile
+    # No need to download them separately
+    pass
 
 
 def should_handle_graal_jars(jdk):
-    java_version_output = check_java_version()
-    return jdk == "jdk21" and "GraalVM" not in java_version_output
+    """
+    Checks if Graal JARs need to be handled separately.
+    NOTE: This always returns False now as Graal JARs are managed by Maven.
+
+    Args:
+        jdk (str): The JDK version.
+
+    Returns:
+        bool: Always False (Graal JARs are managed by Maven)
+    """
+    # Graal JARs are now managed by Maven dependencies
+    return False
 
 
 def maven_cleanup():

@@ -229,6 +229,26 @@
                     </plugin>
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-dependency-plugin</artifactId>
+                        <version>3.6.0</version>
+                        <executions>
+                            <execution>
+                                <id>copy-graal-jars</id>
+                                <phase>generate-sources</phase>
+                                <goals>
+                                    <goal>copy-dependencies</goal>
+                                </goals>
+                                <configuration>
+                                    <outputDirectory>${project.basedir}/graalJars</outputDirectory>
+                                    <includeGroupIds>org.graalvm.compiler,org.graalvm.sdk,org.graalvm.truffle,org.graalvm.polyglot</includeGroupIds>
+                                    <overWriteReleases>false</overWriteReleases>
+                                    <overWriteSnapshots>true</overWriteSnapshots>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-compiler-plugin</artifactId>
                         <version>3.11.0</version>
                         <configuration>
@@ -249,7 +269,7 @@
                                 <arg>ALL-SYSTEM</arg>
                                 <arg>--add-modules=jdk.incubator.vector</arg>
                                 <arg>--upgrade-module-path</arg>
-                                <arg>${user.dir}/graalJars</arg>
+                                <arg>${project.basedir}/graalJars</arg>
                                 <!-- Common exports-->
                                 <arg>--add-exports</arg>
                                 <arg>jdk.internal.vm.compiler/org.graalvm.compiler.nodes.cfg=tornado.runtime</arg>
@@ -1064,6 +1084,49 @@
                     </plugin>
                 </plugins>
             </build>
+            <dependencies>
+                <!-- GraalVM Compiler Dependencies for JDK21 -->
+                <dependency>
+                    <groupId>org.graalvm.compiler</groupId>
+                    <artifactId>compiler</artifactId>
+                    <version>${graalvm.version}</version>
+                </dependency>
+                <dependency>
+                    <groupId>org.graalvm.compiler</groupId>
+                    <artifactId>compiler-management</artifactId>
+                    <version>${graalvm.version}</version>
+                </dependency>
+                <dependency>
+                    <groupId>org.graalvm.sdk</groupId>
+                    <artifactId>graal-sdk</artifactId>
+                    <version>${graalvm.version}</version>
+                </dependency>
+                <dependency>
+                    <groupId>org.graalvm.truffle</groupId>
+                    <artifactId>truffle-api</artifactId>
+                    <version>${graalvm.version}</version>
+                </dependency>
+                <dependency>
+                    <groupId>org.graalvm.truffle</groupId>
+                    <artifactId>truffle-compiler</artifactId>
+                    <version>${graalvm.version}</version>
+                </dependency>
+                <dependency>
+                    <groupId>org.graalvm.sdk</groupId>
+                    <artifactId>collections</artifactId>
+                    <version>${graalvm.version}</version>
+                </dependency>
+                <dependency>
+                    <groupId>org.graalvm.sdk</groupId>
+                    <artifactId>word</artifactId>
+                    <version>${graalvm.version}</version>
+                </dependency>
+                <dependency>
+                    <groupId>org.graalvm.polyglot</groupId>
+                    <artifactId>polyglot</artifactId>
+                    <version>${graalvm.version}</version>
+                </dependency>
+            </dependencies>
         </profile>
 
         <profile>
