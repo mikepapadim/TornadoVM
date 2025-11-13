@@ -61,14 +61,7 @@ public class OpenCL {
         if (VIRTUAL_DEVICE_ENABLED) {
             initializeVirtualPlatform();
         } else {
-            // Initialize physical platform
-            try {
-                // Loading JNI OpenCL library
-                System.loadLibrary(OpenCL.OPENCL_JNI_LIBRARY);
-            } catch (final UnsatisfiedLinkError e) {
-                throw new TornadoRuntimeException("[ERROR] OpenCL JNI Library not found");
-            }
-
+            // Initialize physical platform - now using FFI instead of JNI
             try {
                 initialise();
             } catch (final TornadoRuntimeException e) {
@@ -83,11 +76,26 @@ public class OpenCL {
         }
     }
 
-    static native boolean registerCallback();
+    static boolean registerCallback() {
+        // FFI implementation - callback registration not needed
+        return true;
+    }
 
-    static native int clGetPlatformCount();
+    static int clGetPlatformCount() {
+        try {
+            return uk.ac.manchester.tornado.drivers.opencl.ffi.OpenCLFFI.getPlatformCount();
+        } catch (Throwable e) {
+            throw new TornadoRuntimeException("Failed to get platform count: " + e.getMessage(), e);
+        }
+    }
 
-    static native int clGetPlatformIDs(long[] platformIds);
+    static int clGetPlatformIDs(long[] platformIds) {
+        try {
+            return uk.ac.manchester.tornado.drivers.opencl.ffi.OpenCLFFI.getPlatformIDs(platformIds);
+        } catch (Throwable e) {
+            throw new TornadoRuntimeException("Failed to get platform IDs: " + e.getMessage(), e);
+        }
+    }
 
     public static void cleanup() {
         if (initialised) {

@@ -66,12 +66,28 @@ public class OCLCommandQueue extends CommandQueue {
         return commandQueuePtr;
     }
 
-    static native void clReleaseCommandQueue(long queueId) throws OCLException;
+    static void clReleaseCommandQueue(long queueId) throws OCLException {
+        try {
+            int status = uk.ac.manchester.tornado.drivers.opencl.ffi.OpenCLFFI.releaseCommandQueue(queueId);
+            if (status != uk.ac.manchester.tornado.drivers.opencl.ffi.OpenCLFFI.CL_SUCCESS) {
+                throw new OCLException("clReleaseCommandQueue failed with error: " + status);
+            }
+        } catch (Throwable e) {
+            throw new OCLException("clReleaseCommandQueue failed: " + e.getMessage(), e);
+        }
+    }
 
-    static native void clGetCommandQueueInfo(long queueId, int info, byte[] buffer) throws OCLException;
+    static void clGetCommandQueueInfo(long queueId, int info, byte[] buffer) throws OCLException {
+        try {
+            byte[] result = uk.ac.manchester.tornado.drivers.opencl.ffi.OpenCLFFI.getCommandQueueInfo(queueId, info);
+            System.arraycopy(result, 0, buffer, 0, Math.min(result.length, buffer.length));
+        } catch (Throwable e) {
+            throw new OCLException("clGetCommandQueueInfo failed: " + e.getMessage(), e);
+        }
+    }
 
     /**
-     * Dispatch an OpenCL kernel via a JNI call.
+     * Dispatch an OpenCL kernel via FFI.
      *
      * @param queueId
      *     OpenCL command queue object
@@ -91,52 +107,193 @@ public class OCLCommandQueue extends CommandQueue {
      * @throws OCLException
      *     OpenCL Exception
      */
-    static native long clEnqueueNDRangeKernel(long queueId, long kernelId, int dim, long[] global_work_offset, long[] global_work_size, long[] local_work_size, long[] events) throws OCLException;
+    static long clEnqueueNDRangeKernel(long queueId, long kernelId, int dim, long[] global_work_offset, long[] global_work_size, long[] local_work_size, long[] events) throws OCLException {
+        try {
+            return uk.ac.manchester.tornado.drivers.opencl.ffi.OpenCLFFI.enqueueNDRangeKernel(queueId, kernelId, dim, global_work_offset, global_work_size, local_work_size, events);
+        } catch (Throwable e) {
+            throw new OCLException("clEnqueueNDRangeKernel failed: " + e.getMessage(), e);
+        }
+    }
 
-    static native long writeArrayToDevice(long queueId, byte[] buffer, long hostOffset, boolean blocking, long offset, long bytes, long ptr, long[] events) throws OCLException;
+    static long writeArrayToDevice(long queueId, byte[] buffer, long hostOffset, boolean blocking, long offset, long bytes, long ptr, long[] events) throws OCLException {
+        try {
+            return uk.ac.manchester.tornado.drivers.opencl.ffi.OpenCLDataTransferFFI.writeByteArrayToDevice(queueId, buffer, hostOffset, blocking, offset, bytes, ptr, events);
+        } catch (Throwable e) {
+            throw new OCLException("writeArrayToDevice(byte[]) failed: " + e.getMessage(), e);
+        }
+    }
 
-    static native long writeArrayToDevice(long queueId, char[] buffer, long hostOffset, boolean blocking, long offset, long bytes, long ptr, long[] events) throws OCLException;
+    static long writeArrayToDevice(long queueId, char[] buffer, long hostOffset, boolean blocking, long offset, long bytes, long ptr, long[] events) throws OCLException {
+        try {
+            return uk.ac.manchester.tornado.drivers.opencl.ffi.OpenCLDataTransferFFI.writeCharArrayToDevice(queueId, buffer, hostOffset, blocking, offset, bytes, ptr, events);
+        } catch (Throwable e) {
+            throw new OCLException("writeArrayToDevice(char[]) failed: " + e.getMessage(), e);
+        }
+    }
 
-    static native long writeArrayToDevice(long queueId, short[] buffer, long hostOffset, boolean blocking, long offset, long bytes, long ptr, long[] events) throws OCLException;
+    static long writeArrayToDevice(long queueId, short[] buffer, long hostOffset, boolean blocking, long offset, long bytes, long ptr, long[] events) throws OCLException {
+        try {
+            return uk.ac.manchester.tornado.drivers.opencl.ffi.OpenCLDataTransferFFI.writeShortArrayToDevice(queueId, buffer, hostOffset, blocking, offset, bytes, ptr, events);
+        } catch (Throwable e) {
+            throw new OCLException("writeArrayToDevice(short[]) failed: " + e.getMessage(), e);
+        }
+    }
 
-    static native long writeArrayToDevice(long queueId, int[] buffer, long hostOffset, boolean blocking, long offset, long bytes, long ptr, long[] events) throws OCLException;
+    static long writeArrayToDevice(long queueId, int[] buffer, long hostOffset, boolean blocking, long offset, long bytes, long ptr, long[] events) throws OCLException {
+        try {
+            return uk.ac.manchester.tornado.drivers.opencl.ffi.OpenCLDataTransferFFI.writeIntArrayToDevice(queueId, buffer, hostOffset, blocking, offset, bytes, ptr, events);
+        } catch (Throwable e) {
+            throw new OCLException("writeArrayToDevice(int[]) failed: " + e.getMessage(), e);
+        }
+    }
 
-    static native long writeArrayToDevice(long queueId, long[] buffer, long hostOffset, boolean blocking, long offset, long bytes, long ptr, long[] events) throws OCLException;
+    static long writeArrayToDevice(long queueId, long[] buffer, long hostOffset, boolean blocking, long offset, long bytes, long ptr, long[] events) throws OCLException {
+        try {
+            return uk.ac.manchester.tornado.drivers.opencl.ffi.OpenCLDataTransferFFI.writeLongArrayToDevice(queueId, buffer, hostOffset, blocking, offset, bytes, ptr, events);
+        } catch (Throwable e) {
+            throw new OCLException("writeArrayToDevice(long[]) failed: " + e.getMessage(), e);
+        }
+    }
 
-    static native long writeArrayToDevice(long queueId, float[] buffer, long hostOffset, boolean blocking, long offset, long bytes, long ptr, long[] events) throws OCLException;
+    static long writeArrayToDevice(long queueId, float[] buffer, long hostOffset, boolean blocking, long offset, long bytes, long ptr, long[] events) throws OCLException {
+        try {
+            return uk.ac.manchester.tornado.drivers.opencl.ffi.OpenCLDataTransferFFI.writeFloatArrayToDevice(queueId, buffer, hostOffset, blocking, offset, bytes, ptr, events);
+        } catch (Throwable e) {
+            throw new OCLException("writeArrayToDevice(float[]) failed: " + e.getMessage(), e);
+        }
+    }
 
-    static native long writeArrayToDevice(long queueId, double[] buffer, long hostOffset, boolean blocking, long offset, long bytes, long ptr, long[] events) throws OCLException;
+    static long writeArrayToDevice(long queueId, double[] buffer, long hostOffset, boolean blocking, long offset, long bytes, long ptr, long[] events) throws OCLException {
+        try {
+            return uk.ac.manchester.tornado.drivers.opencl.ffi.OpenCLDataTransferFFI.writeDoubleArrayToDevice(queueId, buffer, hostOffset, blocking, offset, bytes, ptr, events);
+        } catch (Throwable e) {
+            throw new OCLException("writeArrayToDevice(double[]) failed: " + e.getMessage(), e);
+        }
+    }
 
-    native static long writeArrayToDevice(long queueId, long hostPointer, long hostOffset, boolean blocking, long offset, long bytes, long ptr, long[] events) throws OCLException;
+    static long writeArrayToDevice(long queueId, long hostPointer, long hostOffset, boolean blocking, long offset, long bytes, long ptr, long[] events) throws OCLException {
+        try {
+            return uk.ac.manchester.tornado.drivers.opencl.ffi.OpenCLDataTransferFFI.writeMemorySegmentToDevice(queueId, hostPointer, hostOffset, blocking, offset, bytes, ptr, events);
+        } catch (Throwable e) {
+            throw new OCLException("writeArrayToDevice(MemorySegment) failed: " + e.getMessage(), e);
+        }
+    }
 
-    static native long readArrayFromDevice(long queueId, byte[] buffer, long hostOffset, boolean blocking, long offset, long bytes, long ptr, long[] events) throws OCLException;
+    static long readArrayFromDevice(long queueId, byte[] buffer, long hostOffset, boolean blocking, long offset, long bytes, long ptr, long[] events) throws OCLException {
+        try {
+            return uk.ac.manchester.tornado.drivers.opencl.ffi.OpenCLDataTransferFFI.readByteArrayFromDevice(queueId, buffer, hostOffset, blocking, offset, bytes, ptr, events);
+        } catch (Throwable e) {
+            throw new OCLException("readArrayFromDevice(byte[]) failed: " + e.getMessage(), e);
+        }
+    }
 
-    static native long readArrayFromDevice(long queueId, char[] buffer, long hostOffset, boolean blocking, long offset, long bytes, long ptr, long[] events) throws OCLException;
+    static long readArrayFromDevice(long queueId, char[] buffer, long hostOffset, boolean blocking, long offset, long bytes, long ptr, long[] events) throws OCLException {
+        try {
+            return uk.ac.manchester.tornado.drivers.opencl.ffi.OpenCLDataTransferFFI.readCharArrayFromDevice(queueId, buffer, hostOffset, blocking, offset, bytes, ptr, events);
+        } catch (Throwable e) {
+            throw new OCLException("readArrayFromDevice(char[]) failed: " + e.getMessage(), e);
+        }
+    }
 
-    static native long readArrayFromDevice(long queueId, short[] buffer, long hostOffset, boolean blocking, long offset, long bytes, long ptr, long[] events) throws OCLException;
+    static long readArrayFromDevice(long queueId, short[] buffer, long hostOffset, boolean blocking, long offset, long bytes, long ptr, long[] events) throws OCLException {
+        try {
+            return uk.ac.manchester.tornado.drivers.opencl.ffi.OpenCLDataTransferFFI.readShortArrayFromDevice(queueId, buffer, hostOffset, blocking, offset, bytes, ptr, events);
+        } catch (Throwable e) {
+            throw new OCLException("readArrayFromDevice(short[]) failed: " + e.getMessage(), e);
+        }
+    }
 
-    static native long readArrayFromDevice(long queueId, int[] buffer, long hostOffset, boolean blocking, long offset, long bytes, long ptr, long[] events) throws OCLException;
+    static long readArrayFromDevice(long queueId, int[] buffer, long hostOffset, boolean blocking, long offset, long bytes, long ptr, long[] events) throws OCLException {
+        try {
+            return uk.ac.manchester.tornado.drivers.opencl.ffi.OpenCLDataTransferFFI.readIntArrayFromDevice(queueId, buffer, hostOffset, blocking, offset, bytes, ptr, events);
+        } catch (Throwable e) {
+            throw new OCLException("readArrayFromDevice(int[]) failed: " + e.getMessage(), e);
+        }
+    }
 
-    static native long readArrayFromDevice(long queueId, long[] buffer, long hostOffset, boolean blocking, long offset, long bytes, long ptr, long[] events) throws OCLException;
+    static long readArrayFromDevice(long queueId, long[] buffer, long hostOffset, boolean blocking, long offset, long bytes, long ptr, long[] events) throws OCLException {
+        try {
+            return uk.ac.manchester.tornado.drivers.opencl.ffi.OpenCLDataTransferFFI.readLongArrayFromDevice(queueId, buffer, hostOffset, blocking, offset, bytes, ptr, events);
+        } catch (Throwable e) {
+            throw new OCLException("readArrayFromDevice(long[]) failed: " + e.getMessage(), e);
+        }
+    }
 
-    static native long readArrayFromDevice(long queueId, float[] buffer, long hostOffset, boolean blocking, long offset, long bytes, long ptr, long[] events) throws OCLException;
+    static long readArrayFromDevice(long queueId, float[] buffer, long hostOffset, boolean blocking, long offset, long bytes, long ptr, long[] events) throws OCLException {
+        try {
+            return uk.ac.manchester.tornado.drivers.opencl.ffi.OpenCLDataTransferFFI.readFloatArrayFromDevice(queueId, buffer, hostOffset, blocking, offset, bytes, ptr, events);
+        } catch (Throwable e) {
+            throw new OCLException("readArrayFromDevice(float[]) failed: " + e.getMessage(), e);
+        }
+    }
 
-    static native long readArrayFromDevice(long queueId, double[] buffer, long hostOffset, boolean blocking, long offset, long bytes, long ptr, long[] events) throws OCLException;
+    static long readArrayFromDevice(long queueId, double[] buffer, long hostOffset, boolean blocking, long offset, long bytes, long ptr, long[] events) throws OCLException {
+        try {
+            return uk.ac.manchester.tornado.drivers.opencl.ffi.OpenCLDataTransferFFI.readDoubleArrayFromDevice(queueId, buffer, hostOffset, blocking, offset, bytes, ptr, events);
+        } catch (Throwable e) {
+            throw new OCLException("readArrayFromDevice(double[]) failed: " + e.getMessage(), e);
+        }
+    }
 
-    static native long readArrayFromDeviceOffHeap(long queueId, long hostPointer, long hostOffset, boolean blocking, long offset, long bytes, long ptr, long[] events) throws OCLException;
+    static long readArrayFromDeviceOffHeap(long queueId, long hostPointer, long hostOffset, boolean blocking, long offset, long bytes, long ptr, long[] events) throws OCLException {
+        try {
+            return uk.ac.manchester.tornado.drivers.opencl.ffi.OpenCLDataTransferFFI.readMemorySegmentFromDevice(queueId, hostPointer, hostOffset, blocking, offset, bytes, ptr, events);
+        } catch (Throwable e) {
+            throw new OCLException("readArrayFromDeviceOffHeap(MemorySegment) failed: " + e.getMessage(), e);
+        }
+    }
 
-    static native void clEnqueueWaitForEvents(long queueId, long[] events) throws OCLException;
+    static void clEnqueueWaitForEvents(long queueId, long[] events) throws OCLException {
+        try {
+            int status = uk.ac.manchester.tornado.drivers.opencl.ffi.OpenCLFFI.waitForEvents(events);
+            if (status != uk.ac.manchester.tornado.drivers.opencl.ffi.OpenCLFFI.CL_SUCCESS) {
+                throw new OCLException("clEnqueueWaitForEvents failed with error: " + status);
+            }
+        } catch (Throwable e) {
+            throw new OCLException("clEnqueueWaitForEvents failed: " + e.getMessage(), e);
+        }
+    }
 
     /*
      * for OpenCL 1.2 implementations
      */
-    static native long clEnqueueMarkerWithWaitList(long queueId, long[] events) throws OCLException;
+    static long clEnqueueMarkerWithWaitList(long queueId, long[] events) throws OCLException {
+        try {
+            return uk.ac.manchester.tornado.drivers.opencl.ffi.OpenCLFFI.enqueueMarkerWithWaitList(queueId, events);
+        } catch (Throwable e) {
+            throw new OCLException("clEnqueueMarkerWithWaitList failed: " + e.getMessage(), e);
+        }
+    }
 
-    static native long clEnqueueBarrierWithWaitList(long queueId, long[] events) throws OCLException;
+    static long clEnqueueBarrierWithWaitList(long queueId, long[] events) throws OCLException {
+        try {
+            return uk.ac.manchester.tornado.drivers.opencl.ffi.OpenCLFFI.enqueueBarrierWithWaitList(queueId, events);
+        } catch (Throwable e) {
+            throw new OCLException("clEnqueueBarrierWithWaitList failed: " + e.getMessage(), e);
+        }
+    }
 
-    static native void clFlush(long queueId) throws OCLException;
+    static void clFlush(long queueId) throws OCLException {
+        try {
+            int status = uk.ac.manchester.tornado.drivers.opencl.ffi.OpenCLFFI.flush(queueId);
+            if (status != uk.ac.manchester.tornado.drivers.opencl.ffi.OpenCLFFI.CL_SUCCESS) {
+                throw new OCLException("clFlush failed with error: " + status);
+            }
+        } catch (Throwable e) {
+            throw new OCLException("clFlush failed: " + e.getMessage(), e);
+        }
+    }
 
-    static native void clFinish(long queueId) throws OCLException;
+    static void clFinish(long queueId) throws OCLException {
+        try {
+            int status = uk.ac.manchester.tornado.drivers.opencl.ffi.OpenCLFFI.finish(queueId);
+            if (status != uk.ac.manchester.tornado.drivers.opencl.ffi.OpenCLFFI.CL_SUCCESS) {
+                throw new OCLException("clFinish failed with error: " + status);
+            }
+        } catch (Throwable e) {
+            throw new OCLException("clFinish failed: " + e.getMessage(), e);
+        }
+    }
 
     public void flushEvents() {
         try {

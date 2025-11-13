@@ -45,8 +45,7 @@ public class PTX {
     public static long SHUTDOW_THREAD_ID_HOOK;
 
     static {
-        System.loadLibrary(PTX_JNI_LIBRARY);
-
+        // Now using FFI instead of JNI
         initialise();
         platform = new PTXPlatform();
 
@@ -61,7 +60,13 @@ public class PTX {
         });
     }
 
-    private static native long cuInit();
+    private static long cuInit() {
+        try {
+            return uk.ac.manchester.tornado.drivers.ptx.ffi.PTXFFI.init(0);
+        } catch (Throwable e) {
+            throw new TornadoRuntimeException("Failed to initialize CUDA: " + e.getMessage(), e);
+        }
+    }
 
     private static void initialise() {
         if (initialised) {
