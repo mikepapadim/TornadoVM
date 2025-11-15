@@ -19,6 +19,7 @@ package uk.ac.manchester.tornado.api;
 
 import uk.ac.manchester.tornado.api.types.arrays.DoubleArray;
 import uk.ac.manchester.tornado.api.types.arrays.FloatArray;
+import uk.ac.manchester.tornado.api.types.arrays.HalfFloatArray;
 import uk.ac.manchester.tornado.api.types.arrays.IntArray;
 import uk.ac.manchester.tornado.api.types.arrays.LongArray;
 
@@ -200,6 +201,16 @@ public class KernelContext implements ExecutionContext {
     @Override
     public double[] allocateDoubleLocalArray(int size) {
         return new double[size];
+    }
+
+    /**
+     * It allocates a single dimensional array in local memory (known as shared)
+     * @param size
+     * @return
+     */
+    @Override
+    public HalfFloatArray allocateHalfFloatLocalArray(int size) {
+        return new HalfFloatArray(size);
     }
 
     /**

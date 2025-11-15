@@ -358,6 +358,17 @@ public class OCLGraphBuilderPlugins {
         });
     }
 
+    private static void registerHalfLocalArray(Registration r, JavaKind returnedJavaKind, JavaKind elementType) {
+        r.register(new InvocationPlugin("allocateHalfFloatLocalArray", Receiver.class, int.class) {
+            @Override
+            public boolean apply(GraphBuilderContext b, ResolvedJavaMethod targetMethod, Receiver receiver, ValueNode size) {
+                LocalArrayNode localArrayNode = new LocalArrayNode(OCLArchitecture.localSpace, elementType, size);
+                b.push(returnedJavaKind, localArrayNode);
+                return true;
+            }
+        });
+    }
+
     private static void localArraysPlugins(Registration r) {
         JavaKind returnedJavaKind = JavaKind.Object;
 
@@ -372,6 +383,9 @@ public class OCLGraphBuilderPlugins {
 
         elementType = OCLKind.DOUBLE.asJavaKind();
         registerDoubleLocalArray(r, returnedJavaKind, elementType);
+
+        elementType = OCLKind.HALF.asJavaKind();
+        registerHalfLocalArray(r, returnedJavaKind, elementType);
     }
 
     private static void registerKernelContextPlugins(InvocationPlugins plugins) {
@@ -379,6 +393,7 @@ public class OCLGraphBuilderPlugins {
 
         registerLocalBarrier(r);
         registerGlobalBarrier(r);
+        System.out.println("registerKernelContextPlugins");
         localArraysPlugins(r);
         registerAtomicAddOperation(r);
     }
