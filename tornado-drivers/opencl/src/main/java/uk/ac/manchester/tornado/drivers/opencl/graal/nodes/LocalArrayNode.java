@@ -57,11 +57,29 @@ public class LocalArrayNode extends FixedNode implements LIRLowerable, MarkLocal
     private OCLKind kind;
 
     public LocalArrayNode(OCLArchitecture.OCLMemoryBase memoryRegister, ResolvedJavaType elementType, ValueNode length) {
-        super(TYPE, StampFactory.objectNonNull(TypeReference.createTrustedWithoutAssumptions(elementType.getArrayClass())));
+        super(TYPE, createStamp(elementType));
         this.memoryRegister = memoryRegister;
         this.length = length;
-        this.kind = OCLKind.fromResolvedJavaType(elementType);
+        // Check if this is HalfFloat type
+        if (elementType.getUnqualifiedName().equals("HalfFloat")) {
+            this.kind = OCLKind.HALF;
+        } else {
+            this.kind = OCLKind.fromResolvedJavaType(elementType);
+        }
         this.arrayTemplate = OCLKind.resolveTemplateType(elementType);
+    }
+
+    private static org.graalvm.compiler.core.common.type.Stamp createStamp(ResolvedJavaType elementType) {
+        ResolvedJavaType typeRef;
+        try {
+            // Try to get the array class (works for standard types like Float, Int, Double)
+            ResolvedJavaType arrayClass = elementType.getArrayClass();
+            typeRef = arrayClass != null ? arrayClass : elementType;
+        } catch (Exception e) {
+            // Fallback for types that don't have array classes (like HalfFloat)
+            typeRef = elementType;
+        }
+        return StampFactory.objectNonNull(TypeReference.createTrustedWithoutAssumptions(typeRef));
     }
 
     public LocalArrayNode(OCLArchitecture.OCLMemoryBase memoryRegister, JavaKind elementKind, ValueNode length) {
@@ -69,6 +87,14 @@ public class LocalArrayNode extends FixedNode implements LIRLowerable, MarkLocal
         this.memoryRegister = memoryRegister;
         this.length = length;
         this.kind = OCLKind.fromResolvedJavaKind(elementKind);
+        this.arrayTemplate = OCLKind.resolveTemplateType(elementKind);
+    }
+
+    public LocalArrayNode(OCLArchitecture.OCLMemoryBase memoryRegister, OCLKind elementKind, ValueNode length) {
+        super(TYPE, StampFactory.forKind(JavaKind.Object));
+        this.memoryRegister = memoryRegister;
+        this.length = length;
+        this.kind = elementKind;
         this.arrayTemplate = OCLKind.resolveTemplateType(elementKind);
     }
 

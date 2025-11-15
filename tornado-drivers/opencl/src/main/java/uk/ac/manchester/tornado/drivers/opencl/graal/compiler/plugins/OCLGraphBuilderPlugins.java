@@ -364,9 +364,8 @@ public class OCLGraphBuilderPlugins {
         r.register(new InvocationPlugin("allocateHalfLocalArray", Receiver.class, int.class) {
             @Override
             public boolean apply(GraphBuilderContext b, ResolvedJavaMethod targetMethod, Receiver receiver, ValueNode size) {
-                // Get HalfFloat type from the GraphBuilderContext's meta access
-                ResolvedJavaType halfFloatType = b.getMetaAccess().lookupJavaType(HalfFloat.class);
-                LocalArrayNode localArrayNode = new LocalArrayNode(OCLArchitecture.localSpace, halfFloatType, size);
+                // Use OCLKind.HALF directly - this constructor path works like JavaKind constructor
+                LocalArrayNode localArrayNode = new LocalArrayNode(OCLArchitecture.localSpace, OCLKind.HALF, size);
                 b.push(returnedJavaKind, localArrayNode);
                 return true;
             }
@@ -388,7 +387,7 @@ public class OCLGraphBuilderPlugins {
         elementType = OCLKind.DOUBLE.asJavaKind();
         registerDoubleLocalArray(r, returnedJavaKind, elementType);
 
-        // HalfFloat requires special handling - we get ResolvedJavaType at invocation time
+        // HalfFloat uses OCLKind.HALF directly (avoids ambiguity with SHORT)
         registerHalfLocalArray(r, returnedJavaKind);
     }
 

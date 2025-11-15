@@ -39,7 +39,9 @@ import uk.ac.manchester.tornado.api.enums.TornadoVMBackendType;
 import uk.ac.manchester.tornado.api.exceptions.TornadoExecutionPlanException;
 import uk.ac.manchester.tornado.api.math.TornadoMath;
 import uk.ac.manchester.tornado.api.runtime.TornadoRuntimeProvider;
+import uk.ac.manchester.tornado.api.types.HalfFloat;
 import uk.ac.manchester.tornado.api.types.arrays.FloatArray;
+import uk.ac.manchester.tornado.api.types.arrays.HalfFloatArray;
 import uk.ac.manchester.tornado.api.types.arrays.IntArray;
 import uk.ac.manchester.tornado.unittests.common.TornadoTestBase;
 
@@ -131,6 +133,19 @@ public class CodeGenTest extends TornadoTestBase {
                 sum += localArray[i];
             }
         }
+
+        // Synchronize again before exiting
+        context.localBarrier();
+    }
+
+    public static void testLocalHalfFloatMemoryAllocation(KernelContext context, int localWorkGroupSize) {
+        int threadId = context.localIdx;  // Thread ID within work group
+
+        // Allocate local memory
+        HalfFloatArray localHalfArray = context.allocateHalfLocalArray(localWorkGroupSize);
+
+        // Synchronize threads
+        context.localBarrier();
 
         // Synchronize again before exiting
         context.localBarrier();
@@ -363,6 +378,20 @@ public class CodeGenTest extends TornadoTestBase {
 
         TaskGraph taskGraph = new TaskGraph("localMemoryAllocation") //
                 .task("task", CodeGenTest::testLocalMemoryAllocation, context, localWorkGroupSize);
+
+        ImmutableTaskGraph immutableTaskGraph = taskGraph.snapshot();
+        try (TornadoExecutionPlan executionPlan = new TornadoExecutionPlan(immutableTaskGraph)) {
+            executionPlan.execute();
+        }
+    }
+
+    @Test
+    public void test07LocalHalfFloatArray() throws TornadoExecutionPlanException {
+        KernelContext context = new KernelContext();
+        int localWorkGroupSize = 256;
+
+        TaskGraph taskGraph = new TaskGraph("localHalfFloatMemoryAllocation") //
+                .task("task", CodeGenTest::testLocalHalfFloatMemoryAllocation, context, localWorkGroupSize);
 
         ImmutableTaskGraph immutableTaskGraph = taskGraph.snapshot();
         try (TornadoExecutionPlan executionPlan = new TornadoExecutionPlan(immutableTaskGraph)) {

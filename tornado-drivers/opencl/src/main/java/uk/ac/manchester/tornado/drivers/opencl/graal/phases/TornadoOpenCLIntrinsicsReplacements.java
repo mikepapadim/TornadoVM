@@ -190,6 +190,8 @@ public class TornadoOpenCLIntrinsicsReplacements extends BasePhase<TornadoHighTi
                 return JavaKind.Float;
             case "Class:double", "Class:uk.ac.manchester.tornado.api.types.arrays.DoubleArray":
                 return JavaKind.Double;
+            case "Class:uk.ac.manchester.tornado.api.types.arrays.HalfFloatArray":
+                return JavaKind.Short;
             default:
                 unimplemented("Other types not supported yet: " + signatureNode.getValue().toValueString());
         }
