@@ -17,8 +17,10 @@
  */
 package uk.ac.manchester.tornado.api;
 
+import uk.ac.manchester.tornado.api.types.HalfFloat;
 import uk.ac.manchester.tornado.api.types.arrays.DoubleArray;
 import uk.ac.manchester.tornado.api.types.arrays.FloatArray;
+import uk.ac.manchester.tornado.api.types.arrays.HalfFloatArray;
 import uk.ac.manchester.tornado.api.types.arrays.IntArray;
 import uk.ac.manchester.tornado.api.types.arrays.LongArray;
 
@@ -211,8 +213,8 @@ public class KernelContext implements ExecutionContext {
      * @return HalfFloat[]: reference to the HalfFloat array
      */
     @Override
-    public HalfFloat[] allocateHalfLocalArray(int size) {
-        return new HalfFloat[size];
+    public HalfFloatArray allocateHalfLocalArray(int size) {
+        return new HalfFloatArray(size);
     }
 
     /**

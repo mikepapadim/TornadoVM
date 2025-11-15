@@ -17,8 +17,10 @@
  */
 package uk.ac.manchester.tornado.api;
 
+import uk.ac.manchester.tornado.api.types.HalfFloat;
 import uk.ac.manchester.tornado.api.types.arrays.DoubleArray;
 import uk.ac.manchester.tornado.api.types.arrays.FloatArray;
+import uk.ac.manchester.tornado.api.types.arrays.HalfFloatArray;
 import uk.ac.manchester.tornado.api.types.arrays.IntArray;
 import uk.ac.manchester.tornado.api.types.arrays.LongArray;
 
@@ -109,7 +111,7 @@ public interface ExecutionContext {
      *     size of the half-float-array.
      * @return HalfFloat[]
      */
-    HalfFloat[] allocateHalfLocalArray(int size);
+    HalfFloatArray allocateHalfLocalArray(int size);
 
     /**
      * Method used to read a memory address by using the array and the index,
