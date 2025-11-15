@@ -103,6 +103,15 @@ public interface ExecutionContext {
     byte[] allocateByteLocalArray(int size);
 
     /**
+     * Array Allocation in Local Memory (OpenCL terminology).
+     *
+     * @param size
+     *     size of the half-float-array.
+     * @return HalfFloat[]
+     */
+    HalfFloat[] allocateHalfLocalArray(int size);
+
+    /**
      * Method used to read a memory address by using the array and the index,
      * then add the value of val to it, and write the result back to the same address.
      * <p>

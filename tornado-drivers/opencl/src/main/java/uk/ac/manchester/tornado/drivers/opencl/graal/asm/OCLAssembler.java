@@ -955,6 +955,7 @@ public final class OCLAssembler extends Assembler {
         public static final OCLBinaryTemplate NEW_PRIVATE_LONG_ARRAY = new OCLBinaryTemplate("new private array long", "__private long %s[%s]");
         public static final OCLBinaryTemplate NEW_PRIVATE_SHORT_ARRAY = new OCLBinaryTemplate("new private array short", "__private short %s[%s]");
         public static final OCLBinaryTemplate NEW_PRIVATE_BYTE_ARRAY = new OCLBinaryTemplate("new private array byte", "__private byte %s[%s]");
+        public static final OCLBinaryTemplate NEW_PRIVATE_HALF_ARRAY = new OCLBinaryTemplate("new private array half", "__private half %s[%s]");
 
         public static final OCLBinaryTemplate PRIVATE_INT_ARRAY_PTR = new OCLBinaryTemplate("private pointer array int", "__private int* %s = %s");
         public static final OCLBinaryTemplate PRIVATE_CHAR_ARRAY_PTR = new OCLBinaryTemplate("private pointer array char", "__private char* %s = %s");
@@ -963,6 +964,7 @@ public final class OCLAssembler extends Assembler {
         public static final OCLBinaryTemplate PRIVATE_LONG_ARRAY_PTR = new OCLBinaryTemplate("private pointer array long", "__private long* %s = %s");
         public static final OCLBinaryTemplate PRIVATE_SHORT_ARRAY_PTR = new OCLBinaryTemplate("private pointer array short", "__private short* %s = %s");
         public static final OCLBinaryTemplate PRIVATE_BYTE_ARRAY_PTR = new OCLBinaryTemplate("private pointer array byte", "__private byte* %s = %s");
+        public static final OCLBinaryTemplate PRIVATE_HALF_ARRAY_PTR = new OCLBinaryTemplate("private pointer array half", "__private half* %s = %s");
 
         public static final OCLBinaryTemplate PRIVATE_INT_ARRAY_PTR_COPY = new OCLBinaryTemplate("private pointer copy array int", "__private int* %s = ((__private int *) %s)");
         public static final OCLBinaryTemplate PRIVATE_CHAR_ARRAY_PTR_COPY = new OCLBinaryTemplate("private pointer copy array char", "__private char* %s = ((__private char *) %s)");
@@ -971,6 +973,7 @@ public final class OCLAssembler extends Assembler {
         public static final OCLBinaryTemplate PRIVATE_LONG_ARRAY_PTR_COPY = new OCLBinaryTemplate("private pointer copy array long", "__private long* %s = ((__private long *) %s)");
         public static final OCLBinaryTemplate PRIVATE_SHORT_ARRAY_PTR_COPY = new OCLBinaryTemplate("private pointer copy array short", "__private short* %s = ((__private short *) %s)");
         public static final OCLBinaryTemplate PRIVATE_BYTE_ARRAY_PTR_COPY = new OCLBinaryTemplate("private pointer copy array byte", "__private byte* %s = ((__private byte *) %s)");
+        public static final OCLBinaryTemplate PRIVATE_HALF_ARRAY_PTR_COPY = new OCLBinaryTemplate("private pointer copy array half", "__private half* %s = ((__private half *) %s)");
 
         public static final OCLBinaryTemplate NEW_LOCAL_FLOAT_ARRAY = new OCLBinaryTemplate("local memory array float", "__local float %s[%s]");
         public static final OCLBinaryTemplate NEW_LOCAL_INT_ARRAY = new OCLBinaryTemplate("local memory array int", "__local int %s[%s]");
@@ -979,6 +982,7 @@ public final class OCLAssembler extends Assembler {
         public static final OCLBinaryTemplate NEW_LOCAL_SHORT_ARRAY = new OCLBinaryTemplate("local memory array short", "__local short %s[%s]");
         public static final OCLBinaryTemplate NEW_LOCAL_CHAR_ARRAY = new OCLBinaryTemplate("local memory array char", "__local char %s[%s]");
         public static final OCLBinaryTemplate NEW_LOCAL_BYTE_ARRAY = new OCLBinaryTemplate("local memory array byte", "__local byte %s[%s]");
+        public static final OCLBinaryTemplate NEW_LOCAL_HALF_ARRAY = new OCLBinaryTemplate("local memory array half", "__local half %s[%s]");
         // @formatter:on
         private final String template;
 

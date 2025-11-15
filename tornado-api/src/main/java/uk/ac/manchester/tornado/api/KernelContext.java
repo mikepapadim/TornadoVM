@@ -203,6 +203,19 @@ public class KernelContext implements ExecutionContext {
     }
 
     /**
+     * It allocates a single dimensional array in local memory (known as shared
+     * memory in PTX).
+     *
+     * @param size
+     *     the size of the array
+     * @return HalfFloat[]: reference to the HalfFloat array
+     */
+    @Override
+    public HalfFloat[] allocateHalfLocalArray(int size) {
+        return new HalfFloat[size];
+    }
+
+    /**
      * Method used to read a memory address by using the array and the index,
      * then add the value of val to it, and write the result back to the same address.
      * <p>

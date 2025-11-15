@@ -256,6 +256,20 @@ public enum OCLKind implements PlatformKind {
         return null;
     }
 
+    public static OCLAssembler.OCLBinaryTemplate resolvePrivateTemplateType(OCLKind kind) {
+        return switch (kind) {
+            case INT -> OCLAssembler.OCLBinaryTemplate.NEW_PRIVATE_INT_ARRAY;
+            case DOUBLE -> OCLAssembler.OCLBinaryTemplate.NEW_PRIVATE_DOUBLE_ARRAY;
+            case FLOAT -> OCLAssembler.OCLBinaryTemplate.NEW_PRIVATE_FLOAT_ARRAY;
+            case SHORT -> OCLAssembler.OCLBinaryTemplate.NEW_PRIVATE_SHORT_ARRAY;
+            case LONG -> OCLAssembler.OCLBinaryTemplate.NEW_PRIVATE_LONG_ARRAY;
+            case CHAR -> OCLAssembler.OCLBinaryTemplate.NEW_PRIVATE_CHAR_ARRAY;
+            case BYTE -> OCLAssembler.OCLBinaryTemplate.NEW_PRIVATE_BYTE_ARRAY;
+            case HALF -> OCLAssembler.OCLBinaryTemplate.NEW_PRIVATE_HALF_ARRAY;
+            default -> null;
+        };
+    }
+
     public static OCLAssembler.OCLBinaryTemplate resolvePrivatePointerTemplate(JavaKind type) {
         return switch (type) {
             case Int -> OCLAssembler.OCLBinaryTemplate.PRIVATE_INT_ARRAY_PTR;
@@ -269,6 +283,20 @@ public enum OCLKind implements PlatformKind {
         };
     }
 
+    public static OCLAssembler.OCLBinaryTemplate resolvePrivatePointerTemplate(OCLKind kind) {
+        return switch (kind) {
+            case INT -> OCLAssembler.OCLBinaryTemplate.PRIVATE_INT_ARRAY_PTR;
+            case DOUBLE -> OCLAssembler.OCLBinaryTemplate.PRIVATE_DOUBLE_ARRAY_PTR;
+            case FLOAT -> OCLAssembler.OCLBinaryTemplate.PRIVATE_FLOAT_ARRAY_PTR;
+            case SHORT -> OCLAssembler.OCLBinaryTemplate.PRIVATE_SHORT_ARRAY_PTR;
+            case LONG -> OCLAssembler.OCLBinaryTemplate.PRIVATE_LONG_ARRAY_PTR;
+            case CHAR -> OCLAssembler.OCLBinaryTemplate.PRIVATE_CHAR_ARRAY_PTR;
+            case BYTE -> OCLAssembler.OCLBinaryTemplate.PRIVATE_BYTE_ARRAY_PTR;
+            case HALF -> OCLAssembler.OCLBinaryTemplate.PRIVATE_HALF_ARRAY_PTR;
+            default -> null;
+        };
+    }
+
     public static OCLAssembler.OCLBinaryTemplate resolvePrivatePointerCopyTemplate(JavaKind type) {
         return switch (type) {
             case Int -> OCLAssembler.OCLBinaryTemplate.PRIVATE_INT_ARRAY_PTR_COPY;
@@ -278,6 +306,20 @@ public enum OCLKind implements PlatformKind {
             case Long -> OCLAssembler.OCLBinaryTemplate.PRIVATE_LONG_ARRAY_PTR_COPY;
             case Char -> OCLAssembler.OCLBinaryTemplate.PRIVATE_CHAR_ARRAY_PTR_COPY;
             case Byte -> OCLAssembler.OCLBinaryTemplate.PRIVATE_BYTE_ARRAY_PTR_COPY;
+            default -> null;
+        };
+    }
+
+    public static OCLAssembler.OCLBinaryTemplate resolvePrivatePointerCopyTemplate(OCLKind kind) {
+        return switch (kind) {
+            case INT -> OCLAssembler.OCLBinaryTemplate.PRIVATE_INT_ARRAY_PTR_COPY;
+            case DOUBLE -> OCLAssembler.OCLBinaryTemplate.PRIVATE_DOUBLE_ARRAY_PTR_COPY;
+            case FLOAT -> OCLAssembler.OCLBinaryTemplate.PRIVATE_FLOAT_ARRAY_PTR_COPY;
+            case SHORT -> OCLAssembler.OCLBinaryTemplate.PRIVATE_SHORT_ARRAY_PTR_COPY;
+            case LONG -> OCLAssembler.OCLBinaryTemplate.PRIVATE_LONG_ARRAY_PTR_COPY;
+            case CHAR -> OCLAssembler.OCLBinaryTemplate.PRIVATE_CHAR_ARRAY_PTR_COPY;
+            case BYTE -> OCLAssembler.OCLBinaryTemplate.PRIVATE_BYTE_ARRAY_PTR_COPY;
+            case HALF -> OCLAssembler.OCLBinaryTemplate.PRIVATE_HALF_ARRAY_PTR_COPY;
             default -> null;
         };
     }
@@ -301,19 +343,49 @@ public enum OCLKind implements PlatformKind {
         return null;
     }
 
+    public static OCLAssembler.OCLBinaryTemplate resolveTemplateType(OCLKind kind) {
+        return switch (kind) {
+            case INT -> OCLAssembler.OCLBinaryTemplate.NEW_LOCAL_INT_ARRAY;
+            case DOUBLE -> OCLAssembler.OCLBinaryTemplate.NEW_LOCAL_DOUBLE_ARRAY;
+            case FLOAT -> OCLAssembler.OCLBinaryTemplate.NEW_LOCAL_FLOAT_ARRAY;
+            case SHORT -> OCLAssembler.OCLBinaryTemplate.NEW_LOCAL_SHORT_ARRAY;
+            case LONG -> OCLAssembler.OCLBinaryTemplate.NEW_LOCAL_LONG_ARRAY;
+            case CHAR -> OCLAssembler.OCLBinaryTemplate.NEW_LOCAL_CHAR_ARRAY;
+            case BYTE -> OCLAssembler.OCLBinaryTemplate.NEW_LOCAL_BYTE_ARRAY;
+            case HALF -> OCLAssembler.OCLBinaryTemplate.NEW_LOCAL_HALF_ARRAY;
+            default -> null;
+        };
+    }
+
     public static OCLAssembler.OCLBinaryTemplate resolveTemplateType(ResolvedJavaType type) {
+        // Check if this is a HalfFloat type
+        if (type.getUnqualifiedName().equals("HalfFloat")) {
+            return OCLAssembler.OCLBinaryTemplate.NEW_LOCAL_HALF_ARRAY;
+        }
         return resolveTemplateType(type.getJavaKind());
     }
 
     public static OCLAssembler.OCLBinaryTemplate resolvePrivateTemplateType(ResolvedJavaType type) {
+        // Check if this is a HalfFloat type
+        if (type.getUnqualifiedName().equals("HalfFloat")) {
+            return OCLAssembler.OCLBinaryTemplate.NEW_PRIVATE_HALF_ARRAY;
+        }
         return resolvePrivateTemplateType(type.getJavaKind());
     }
 
     public static OCLAssembler.OCLBinaryTemplate resolvePrivatePointerTemplate(ResolvedJavaType type) {
+        // Check if this is a HalfFloat type
+        if (type.getUnqualifiedName().equals("HalfFloat")) {
+            return OCLAssembler.OCLBinaryTemplate.PRIVATE_HALF_ARRAY_PTR;
+        }
         return resolvePrivatePointerTemplate(type.getJavaKind());
     }
 
     public static OCLAssembler.OCLBinaryTemplate resolvePrivatePointerCopyTemplate(ResolvedJavaType type) {
+        // Check if this is a HalfFloat type
+        if (type.getUnqualifiedName().equals("HalfFloat")) {
+            return OCLAssembler.OCLBinaryTemplate.PRIVATE_HALF_ARRAY_PTR_COPY;
+        }
         return resolvePrivatePointerCopyTemplate(type.getJavaKind());
     }
 
