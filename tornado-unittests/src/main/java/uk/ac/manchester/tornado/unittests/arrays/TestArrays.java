@@ -148,6 +148,19 @@ public class TestArrays extends TornadoTestBase {
         }
     }
 
+    public static void reductionOneBlock2WithLogits(KernelContext context, HalfFloatArray output, FloatArray weights, FloatArray temp) {
+        int gid = context.globalIdx;
+        float ss = temp.get(0);
+        output.set(gid, new HalfFloat((weights.get(gid) * (ss * output.get(gid).getFloat32()))));
+    }
+
+    public static void reductionOneBlock2WithLogitsSeq(HalfFloatArray output, FloatArray weights, FloatArray temp) {
+        float ss = temp.get(0);
+        for (int gid = 0; gid < output.getSize(); gid++) {
+            output.set(gid, new HalfFloat((weights.get(gid) * (ss * output.get(gid).getFloat32()))));
+        }
+    }
+
     public static void initializeSequentialByte(ByteArray a) {
         for (int i = 0; i < a.getSize(); i++) {
             a.set(i, (byte) 21);
@@ -702,6 +715,61 @@ public class TestArrays extends TornadoTestBase {
         assertEquals('l', a.get(3));
         assertEquals('d', a.get(4));
         assertEquals('!', a.get(5));
+    }
+
+    @Test
+    public void testReductionOneBlock2WithLogits() throws TornadoExecutionPlanException {
+        final int numElements = 256;
+
+        // Initialize arrays
+        HalfFloatArray output = new HalfFloatArray(numElements);
+        FloatArray weights = new FloatArray(numElements);
+        FloatArray temp = new FloatArray(1);
+
+        // Initialize with test data
+        Random r = new Random(42);  // Fixed seed for reproducibility
+        for (int i = 0; i < numElements; i++) {
+            output.set(i, new HalfFloat(r.nextFloat() * 10.0f));
+            weights.set(i, r.nextFloat() * 2.0f);
+        }
+        temp.set(0, 0.5f);  // Scalar value for reduction
+
+        // Create copies for sequential computation
+        HalfFloatArray sequentialOutput = new HalfFloatArray(numElements);
+        FloatArray sequentialWeights = new FloatArray(numElements);
+        FloatArray sequentialTemp = new FloatArray(1);
+
+        for (int i = 0; i < numElements; i++) {
+            sequentialOutput.set(i, output.get(i));
+            sequentialWeights.set(i, weights.get(i));
+        }
+        sequentialTemp.set(0, temp.get(0));
+
+        // Sequential computation
+        reductionOneBlock2WithLogitsSeq(sequentialOutput, sequentialWeights, sequentialTemp);
+
+        // Parallel computation with TornadoVM
+        KernelContext context = new KernelContext();
+        WorkerGrid grid = new WorkerGrid1D(numElements);
+        GridScheduler gridScheduler = new GridScheduler("s0.t0", grid);
+
+        TaskGraph taskGraph = new TaskGraph("s0") //
+                .transferToDevice(DataTransferMode.FIRST_EXECUTION, output, weights, temp, context) //
+                .task("t0", TestArrays::reductionOneBlock2WithLogits, context, output, weights, temp) //
+                .transferToHost(DataTransferMode.EVERY_EXECUTION, output);
+
+        ImmutableTaskGraph immutableTaskGraph = taskGraph.snapshot();
+        try (TornadoExecutionPlan executionPlan = new TornadoExecutionPlan(immutableTaskGraph)) {
+            executionPlan.withGridScheduler(gridScheduler).execute();
+        }
+
+        // Verify results
+        for (int i = 0; i < numElements; i++) {
+            assertEquals("Mismatch at index " + i,
+                sequentialOutput.get(i).getFloat32(),
+                output.get(i).getFloat32(),
+                0.1f);
+        }
     }
     // CHECKSTYLE:ON
 
