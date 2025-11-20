@@ -26,6 +26,7 @@ import uk.ac.manchester.tornado.api.WorkerGrid;
 import uk.ac.manchester.tornado.api.WorkerGrid1D;
 import uk.ac.manchester.tornado.api.enums.DataTransferMode;
 import uk.ac.manchester.tornado.api.types.arrays.IntArray;
+import uk.ac.manchester.tornado.api.exceptions.TornadoExecutionPlanException;
 
 /**
  * CUDA Pattern 24: Breadth-First Search (Naive)
@@ -138,7 +139,7 @@ public class Pattern24_BFS_Naive {
         }
     }
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws TornadoExecutionPlanException {
         // Define graph in CSR format
         // Example: 6-vertex graph
         final int numVertices = 6;

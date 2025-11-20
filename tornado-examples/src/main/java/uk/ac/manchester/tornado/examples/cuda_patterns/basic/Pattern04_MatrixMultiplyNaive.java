@@ -26,6 +26,7 @@ import uk.ac.manchester.tornado.api.WorkerGrid;
 import uk.ac.manchester.tornado.api.WorkerGrid2D;
 import uk.ac.manchester.tornado.api.enums.DataTransferMode;
 import uk.ac.manchester.tornado.api.types.arrays.FloatArray;
+import uk.ac.manchester.tornado.api.exceptions.TornadoExecutionPlanException;
 
 /**
  * CUDA Pattern 04: Matrix Multiplication (Naive)
@@ -101,7 +102,7 @@ public class Pattern04_MatrixMultiplyNaive {
         }
     }
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws TornadoExecutionPlanException {
         final int M = 256;  // Rows in A and C
         final int N = 256;  // Columns in B and C
         final int K = 256;  // Columns in A, rows in B

@@ -26,6 +26,7 @@ import uk.ac.manchester.tornado.api.WorkerGrid;
 import uk.ac.manchester.tornado.api.WorkerGrid1D;
 import uk.ac.manchester.tornado.api.enums.DataTransferMode;
 import uk.ac.manchester.tornado.api.types.arrays.IntArray;
+import uk.ac.manchester.tornado.api.exceptions.TornadoExecutionPlanException;
 
 /**
  * CUDA Pattern 20: Prefix Sum / Scan (Single Block, Kogge-Stone)
@@ -131,7 +132,7 @@ public class Pattern20_PrefixSumSingleBlock {
         }
     }
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws TornadoExecutionPlanException {
         final int n = 256;  // Single block size
         final int blockSize = 256;
 

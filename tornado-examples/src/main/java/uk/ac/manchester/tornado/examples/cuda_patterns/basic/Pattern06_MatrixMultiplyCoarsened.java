@@ -26,6 +26,7 @@ import uk.ac.manchester.tornado.api.WorkerGrid;
 import uk.ac.manchester.tornado.api.WorkerGrid2D;
 import uk.ac.manchester.tornado.api.enums.DataTransferMode;
 import uk.ac.manchester.tornado.api.types.arrays.FloatArray;
+import uk.ac.manchester.tornado.api.exceptions.TornadoExecutionPlanException;
 
 /**
  * CUDA Pattern 06: Matrix Multiplication (Coarsened/Thread Coarsening)
@@ -168,7 +169,7 @@ public class Pattern06_MatrixMultiplyCoarsened {
         }
     }
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws TornadoExecutionPlanException {
         final int M = 512;
         final int N = 512;
         final int K = 512;
