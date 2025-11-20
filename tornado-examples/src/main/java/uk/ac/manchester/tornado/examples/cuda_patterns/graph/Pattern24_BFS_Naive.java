@@ -25,7 +25,6 @@ import uk.ac.manchester.tornado.api.TornadoExecutionPlan;
 import uk.ac.manchester.tornado.api.WorkerGrid;
 import uk.ac.manchester.tornado.api.WorkerGrid1D;
 import uk.ac.manchester.tornado.api.enums.DataTransferMode;
-import uk.ac.manchester.tornado.api.TornadoExecutionPlanException;
 import uk.ac.manchester.tornado.api.types.arrays.IntArray;
 
 /**
@@ -139,7 +138,7 @@ public class Pattern24_BFS_Naive {
         }
     }
 
-    public static void main(String[] args) throws TornadoExecutionPlanException {
+    public static void main(String[] args) {
         // Define graph in CSR format
         // Example: 6-vertex graph
         final int numVertices = 6;

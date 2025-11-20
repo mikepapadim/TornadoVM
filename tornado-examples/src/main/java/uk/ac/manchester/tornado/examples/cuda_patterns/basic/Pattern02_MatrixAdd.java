@@ -26,7 +26,6 @@ import uk.ac.manchester.tornado.api.WorkerGrid;
 import uk.ac.manchester.tornado.api.WorkerGrid2D;
 import uk.ac.manchester.tornado.api.enums.DataTransferMode;
 import uk.ac.manchester.tornado.api.types.arrays.FloatArray;
-import uk.ac.manchester.tornado.api.TornadoExecutionPlanException;
 
 /**
  * CUDA Pattern 02: Matrix Addition
@@ -84,7 +83,7 @@ public class Pattern02_MatrixAdd {
         }
     }
 
-    public static void main(String[] args) throws TornadoExecutionPlanException {
+    public static void main(String[] args) {
         final int width = 1024;
         final int height = 1024;
         final int size = width * height;

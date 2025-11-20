@@ -26,7 +26,6 @@ import uk.ac.manchester.tornado.api.WorkerGrid;
 import uk.ac.manchester.tornado.api.WorkerGrid2D;
 import uk.ac.manchester.tornado.api.enums.DataTransferMode;
 import uk.ac.manchester.tornado.api.types.arrays.FloatArray;
-import uk.ac.manchester.tornado.api.TornadoExecutionPlanException;
 
 /**
  * CUDA Pattern 03: Image Blur (Box Blur)
@@ -128,7 +127,7 @@ public class Pattern03_ImageBlur {
         }
     }
 
-    public static void main(String[] args) throws TornadoExecutionPlanException {
+    public static void main(String[] args) {
         final int width = 512;
         final int height = 512;
         final int size = width * height;

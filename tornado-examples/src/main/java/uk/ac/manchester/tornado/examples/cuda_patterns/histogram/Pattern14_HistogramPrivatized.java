@@ -25,7 +25,6 @@ import uk.ac.manchester.tornado.api.TornadoExecutionPlan;
 import uk.ac.manchester.tornado.api.WorkerGrid;
 import uk.ac.manchester.tornado.api.WorkerGrid1D;
 import uk.ac.manchester.tornado.api.enums.DataTransferMode;
-import uk.ac.manchester.tornado.api.TornadoExecutionPlanException;
 import uk.ac.manchester.tornado.api.types.arrays.IntArray;
 
 /**
@@ -129,7 +128,7 @@ public class Pattern14_HistogramPrivatized {
         }
     }
 
-    public static void main(String[] args) throws TornadoExecutionPlanException {
+    public static void main(String[] args) {
         final int numElements = 1000000;  // 1M elements
         final int numBins = 256;          // 256 bins
         final int localSize = 256;        // Block size

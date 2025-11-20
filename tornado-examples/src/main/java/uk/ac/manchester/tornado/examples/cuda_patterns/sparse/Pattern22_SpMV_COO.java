@@ -26,7 +26,6 @@ import uk.ac.manchester.tornado.api.WorkerGrid;
 import uk.ac.manchester.tornado.api.WorkerGrid1D;
 import uk.ac.manchester.tornado.api.enums.DataTransferMode;
 import uk.ac.manchester.tornado.api.types.arrays.FloatArray;
-import uk.ac.manchester.tornado.api.TornadoExecutionPlanException;
 import uk.ac.manchester.tornado.api.types.arrays.IntArray;
 
 /**
@@ -112,7 +111,7 @@ public class Pattern22_SpMV_COO {
         }
     }
 
-    public static void main(String[] args) throws TornadoExecutionPlanException {
+    public static void main(String[] args) {
         // Define sparse matrix in COO format
         // Example: 4×4 matrix with 7 non-zeros
         final int numRows = 4;
