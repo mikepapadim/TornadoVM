@@ -25,6 +25,7 @@ import uk.ac.manchester.tornado.api.TornadoExecutionPlan;
 import uk.ac.manchester.tornado.api.WorkerGrid;
 import uk.ac.manchester.tornado.api.WorkerGrid1D;
 import uk.ac.manchester.tornado.api.enums.DataTransferMode;
+import uk.ac.manchester.tornado.api.TornadoExecutionPlanException;
 import uk.ac.manchester.tornado.api.types.arrays.IntArray;
 
 /**
@@ -138,7 +139,7 @@ public class Pattern24_BFS_Naive {
         }
     }
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws TornadoExecutionPlanException {
         // Define graph in CSR format
         // Example: 6-vertex graph
         final int numVertices = 6;
@@ -148,8 +149,11 @@ public class Pattern24_BFS_Naive {
 
         // CSR representation
         // Graph: 0→1,2  1→2,3  2→3  3→4,5  4→5  5→(none)
-        IntArray rowPtr = new IntArray(new int[] { 0, 2, 4, 5, 7, 8, 8 }); // Note: size = numVertices + 1
-        IntArray colIdx = new IntArray(new int[] { 1, 2, 2, 3, 3, 4, 5, 5 });
+        IntArray rowPtr = new IntArray(numVertices + 1); // Note: size = numVertices + 1
+        rowPtr.set(0, 0); rowPtr.set(1, 2); rowPtr.set(2, 4); rowPtr.set(3, 5); rowPtr.set(4, 7); rowPtr.set(5, 8); rowPtr.set(6, 8);
+
+        IntArray colIdx = new IntArray(numEdges);
+        colIdx.set(0, 1); colIdx.set(1, 2); colIdx.set(2, 2); colIdx.set(3, 3); colIdx.set(4, 3); colIdx.set(5, 4); colIdx.set(6, 5); colIdx.set(7, 5);
 
         // Output arrays
         IntArray levels = new IntArray(numVertices);

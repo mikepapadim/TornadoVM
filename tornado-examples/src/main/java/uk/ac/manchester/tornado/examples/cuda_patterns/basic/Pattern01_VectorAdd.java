@@ -26,6 +26,7 @@ import uk.ac.manchester.tornado.api.WorkerGrid;
 import uk.ac.manchester.tornado.api.WorkerGrid1D;
 import uk.ac.manchester.tornado.api.enums.DataTransferMode;
 import uk.ac.manchester.tornado.api.types.arrays.FloatArray;
+import uk.ac.manchester.tornado.api.TornadoExecutionPlanException;
 
 /**
  * CUDA Pattern 01: Vector Addition
@@ -71,7 +72,7 @@ public class Pattern01_VectorAdd {
         }
     }
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws TornadoExecutionPlanException {
         final int size = 8192;
         final int localSize = 256; // Block size (threads per block)
 

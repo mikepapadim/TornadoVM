@@ -26,6 +26,7 @@ import uk.ac.manchester.tornado.api.WorkerGrid;
 import uk.ac.manchester.tornado.api.WorkerGrid1D;
 import uk.ac.manchester.tornado.api.enums.DataTransferMode;
 import uk.ac.manchester.tornado.api.types.arrays.FloatArray;
+import uk.ac.manchester.tornado.api.TornadoExecutionPlanException;
 import uk.ac.manchester.tornado.api.types.arrays.IntArray;
 
 /**
@@ -111,7 +112,7 @@ public class Pattern22_SpMV_COO {
         }
     }
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws TornadoExecutionPlanException {
         // Define sparse matrix in COO format
         // Example: 4×4 matrix with 7 non-zeros
         final int numRows = 4;
@@ -120,12 +121,18 @@ public class Pattern22_SpMV_COO {
         final int blockSize = 256;
 
         // COO representation
-        IntArray rows = new IntArray(new int[] { 0, 0, 1, 2, 2, 2, 3 });
-        IntArray cols = new IntArray(new int[] { 0, 2, 1, 0, 2, 3, 3 });
-        FloatArray vals = new FloatArray(new float[] { 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f });
+        IntArray rows = new IntArray(nnz);
+        rows.set(0, 0); rows.set(1, 0); rows.set(2, 1); rows.set(3, 2); rows.set(4, 2); rows.set(5, 2); rows.set(6, 3);
+
+        IntArray cols = new IntArray(nnz);
+        cols.set(0, 0); cols.set(1, 2); cols.set(2, 1); cols.set(3, 0); cols.set(4, 2); cols.set(5, 3); cols.set(6, 3);
+
+        FloatArray vals = new FloatArray(nnz);
+        vals.set(0, 1.0f); vals.set(1, 2.0f); vals.set(2, 3.0f); vals.set(3, 4.0f); vals.set(4, 5.0f); vals.set(5, 6.0f); vals.set(6, 7.0f);
 
         // Input vector
-        FloatArray x = new FloatArray(new float[] { 1.0f, 2.0f, 3.0f, 4.0f });
+        FloatArray x = new FloatArray(numCols);
+        x.set(0, 1.0f); x.set(1, 2.0f); x.set(2, 3.0f); x.set(3, 4.0f);
 
         // Output vectors
         FloatArray y = new FloatArray(numRows);
