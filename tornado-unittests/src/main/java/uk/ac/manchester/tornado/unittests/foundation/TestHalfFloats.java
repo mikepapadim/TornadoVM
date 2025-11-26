@@ -30,6 +30,34 @@ import static org.junit.Assert.assertEquals;
  */
 public class TestHalfFloats extends TornadoTestBase {
 
+
+
+//    __kernel void convertFP32toFP16(__global long *_kernel_context, __constant uchar *_constant_region, __local uchar *_local_region, __global int *_atomics, __global uchar *wrapX, __global uchar *x)
+//    {
+//        int i_3, i_2, i_8;
+//        long l_5, l_10, l_9, l_4;
+//        ulong ul_1, ul_0, ul_6, ul_11;
+//        half half_7;
+//
+//        // BLOCK 0
+//        ul_0  =  (ulong) wrapX;
+//        ul_1  =  (ulong) x;
+//        i_2  =  get_global_id(0);
+//        i_3  =  i_2 + 4;
+//        l_4  =  (long) i_3;
+//        l_5  =  l_4 << 2;
+//        ul_6  =  ul_0 + l_5;
+//        half_7  =  *((__global half *) ul_6); < ------------- Issue here -> it would be loading a float
+ //        i_8  =  i_2 + 8;                   <-- No need -> as read and write are from index (i)
+//        l_9  =  (long) i_8;                 <--
+//        l_10  =  l_9 << 1;                  <--
+//        ul_11  =  ul_1 + l_10;              <-- so it should be here -> ul11 =  ul_1 + l_5
+//        *((__global half *) ul_11)  =  half_7;
+//        return;
+//    }  //  kernel
+
+// TODO: The issue seems to be in TornadoHalfFloatReplacement -> lines 150++
+
     public static void convertFP32toFP16(KernelContext context,  FloatArray wrapX, HalfFloatArray x) {
         int i = context.globalIdx;
         float valInput = wrapX.get(i);
