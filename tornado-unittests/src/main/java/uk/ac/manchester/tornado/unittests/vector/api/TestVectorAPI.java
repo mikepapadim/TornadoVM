@@ -22,8 +22,8 @@ import java.util.Random;
 import java.util.stream.IntStream;
 
 import org.junit.Assert;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import jdk.incubator.vector.FloatVector;
 import jdk.incubator.vector.VectorSpecies;
@@ -52,7 +52,7 @@ public class TestVectorAPI extends TornadoTestBase {
         return rand.nextFloat() * (max - min) + min;
     }
 
-    @BeforeClass
+    @BeforeAll
     public static void setUpBeforeClass() {
         arrayA = new FloatArray(SIZE);
         arrayB = new FloatArray(SIZE);

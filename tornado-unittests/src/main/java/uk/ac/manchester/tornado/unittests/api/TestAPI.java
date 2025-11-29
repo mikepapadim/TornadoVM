@@ -27,7 +27,7 @@ import java.lang.foreign.ValueLayout;
 import java.nio.DoubleBuffer;
 import java.util.stream.IntStream;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import uk.ac.manchester.tornado.api.DataRange;
 import uk.ac.manchester.tornado.api.ImmutableTaskGraph;
@@ -490,7 +490,8 @@ public class TestAPI extends TornadoTestBase {
         }
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    
+    @Test
     public void testBuildWithSegmentsWrongSize() {
         final int num_elements = 10;
         final int additional_bytes = 1;

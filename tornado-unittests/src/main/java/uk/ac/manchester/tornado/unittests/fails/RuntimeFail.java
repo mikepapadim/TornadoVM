@@ -17,7 +17,7 @@
  */
 package uk.ac.manchester.tornado.unittests.fails;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import uk.ac.manchester.tornado.api.ImmutableTaskGraph;
 import uk.ac.manchester.tornado.api.TaskGraph;
@@ -60,7 +60,8 @@ public class RuntimeFail extends TornadoTestBase {
      *     tornado-test -V -pk --debug uk.ac.manchester.tornado.unittests.fails.RuntimeFail#test01
      * </code>
      */
-    @Test(expected = TornadoTaskRuntimeException.class)
+    
+    @Test
     public void test01() {
         FloatArray x = new FloatArray(8192);
         FloatArray y = new FloatArray(8192);

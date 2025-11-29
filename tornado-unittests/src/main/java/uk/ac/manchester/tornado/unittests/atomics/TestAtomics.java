@@ -28,7 +28,7 @@ import java.util.Random;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import uk.ac.manchester.tornado.api.AccessorParameters;
 import uk.ac.manchester.tornado.api.GridScheduler;

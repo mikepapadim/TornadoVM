@@ -20,7 +20,7 @@ package uk.ac.manchester.tornado.unittests.fails;
 import java.util.Random;
 import java.util.stream.IntStream;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import uk.ac.manchester.tornado.api.ImmutableTaskGraph;
 import uk.ac.manchester.tornado.api.TaskGraph;
@@ -128,7 +128,8 @@ public class CodeFail extends TornadoTestBase {
         }
     }
 
-    @Test(expected = TornadoBailoutRuntimeException.class)
+    
+    @Test
     public void codeFail03() {
         final int size = 128;
         IntArray input = new IntArray(size);

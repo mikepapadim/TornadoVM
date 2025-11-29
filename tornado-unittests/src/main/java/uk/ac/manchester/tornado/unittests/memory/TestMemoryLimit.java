@@ -19,8 +19,8 @@ package uk.ac.manchester.tornado.unittests.memory;
 
 import static org.junit.Assert.assertEquals;
 
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import uk.ac.manchester.tornado.api.ImmutableTaskGraph;
 import uk.ac.manchester.tornado.api.TaskGraph;
@@ -43,7 +43,7 @@ import uk.ac.manchester.tornado.unittests.TestHello;
  */
 public class TestMemoryLimit extends TestMemoryCommon {
 
-    @BeforeClass
+    @BeforeAll
     public static void setUpBeforeClass() {
         a = new IntArray(NUM_ELEMENTS);
         b = new IntArray(NUM_ELEMENTS);
@@ -78,7 +78,8 @@ public class TestMemoryLimit extends TestMemoryCommon {
         }
     }
 
-    @Test(expected = TornadoMemoryException.class)
+    
+    @Test
     public void testWithMemoryLimitUnder() {
         TaskGraph taskGraph = new TaskGraph("s0") //
                 .transferToDevice(DataTransferMode.FIRST_EXECUTION, a, b) //

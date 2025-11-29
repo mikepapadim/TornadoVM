@@ -22,8 +22,8 @@ import static org.junit.Assert.assertEquals;
 import java.util.Random;
 import java.util.stream.IntStream;
 
-import org.junit.Ignore;
-import org.junit.Test;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
 import uk.ac.manchester.tornado.api.ImmutableTaskGraph;
 import uk.ac.manchester.tornado.api.TaskGraph;
@@ -332,7 +332,7 @@ public class TestReductionsFloats extends TornadoTestBase {
     }
 
     // This is currently not supported
-    @Ignore
+    @Disabled
     public void testSumFloatsCondition() throws TornadoExecutionPlanException {
         FloatArray input = new FloatArray(SIZE2);
         FloatArray result = new FloatArray(1);

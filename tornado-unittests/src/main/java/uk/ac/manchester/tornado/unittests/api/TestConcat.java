@@ -17,7 +17,7 @@
  */
 package uk.ac.manchester.tornado.unittests.api;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import uk.ac.manchester.tornado.api.types.HalfFloat;
 import uk.ac.manchester.tornado.api.types.arrays.ByteArray;
 import uk.ac.manchester.tornado.api.types.arrays.CharArray;

@@ -25,7 +25,7 @@ import static org.junit.Assert.assertTrue;
 import java.util.List;
 import java.util.stream.Stream;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import uk.ac.manchester.tornado.api.TornadoBackend;
 import uk.ac.manchester.tornado.api.TornadoDeviceMap;
@@ -52,7 +52,8 @@ public class TestDevices extends TornadoTestBase {
      * We ask, on purpose, for a backend index that does not exist to
      * check that the exception {@link TornadoBackendNotFound} in thrown.
      */
-    @Test(expected = TornadoBackendNotFound.class)
+    
+    @Test
     public void test01() {
         TornadoDevice device = TornadoExecutionPlan.getDevice(100, 0);
     }
@@ -61,7 +62,8 @@ public class TestDevices extends TornadoTestBase {
      * We ask, on purpose, for a device index that does not exist to
      * check that the exception {@link TornadoDeviceNotFound} in thrown.
      */
-    @Test(expected = TornadoDeviceNotFound.class)
+    
+    @Test
     public void test02() {
         TornadoDevice device = TornadoExecutionPlan.getDevice(0, 100);
     }

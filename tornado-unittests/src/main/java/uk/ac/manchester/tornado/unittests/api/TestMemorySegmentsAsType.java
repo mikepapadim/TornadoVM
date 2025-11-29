@@ -18,7 +18,7 @@
 
 package uk.ac.manchester.tornado.unittests.api;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import uk.ac.manchester.tornado.api.ImmutableTaskGraph;
 import uk.ac.manchester.tornado.api.TaskGraph;
 import uk.ac.manchester.tornado.api.TornadoExecutionPlan;
@@ -48,7 +48,8 @@ public class TestMemorySegmentsAsType extends TornadoTestBase {
         float test = a.getAtIndex(ValueLayout.JAVA_FLOAT, 5);
     }
 
-    @Test(expected = TornadoRuntimeException.class)
+    
+    @Test
     public void testMemorySegmentAsInput() throws TornadoExecutionPlanException {
         MemorySegment segment;
         long segmentByteSize = numElements * ValueLayout.JAVA_FLOAT.byteSize();

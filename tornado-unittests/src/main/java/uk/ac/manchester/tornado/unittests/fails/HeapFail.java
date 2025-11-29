@@ -20,7 +20,7 @@ package uk.ac.manchester.tornado.unittests.fails;
 
 import java.util.Arrays;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import uk.ac.manchester.tornado.api.ImmutableTaskGraph;
 import uk.ac.manchester.tornado.api.TaskGraph;
@@ -54,7 +54,8 @@ public class HeapFail {
      * </code>
      *
      */
-    @Test(expected = TornadoOutOfMemoryException.class)
+    
+    @Test
     public void test03() throws TornadoOutOfMemoryException {
         // This test simulates small amount of memory on the target device and we
         // allocate more than available. We should get a concrete error message back

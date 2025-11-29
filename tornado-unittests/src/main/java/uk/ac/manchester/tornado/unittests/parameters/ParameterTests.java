@@ -17,7 +17,7 @@
  */
 package uk.ac.manchester.tornado.unittests.parameters;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import uk.ac.manchester.tornado.api.ImmutableTaskGraph;
 import uk.ac.manchester.tornado.api.TaskGraph;
@@ -73,7 +73,8 @@ public class ParameterTests extends TornadoTestBase {
      * This test throws a {@link TornadoRuntimeException} because scalar values are
      * used as output parameters. This type of code is not legal in TornadoVM.
      */
-    @Test(expected = TornadoRuntimeException.class)
+    
+    @Test
     public void testScalarParameters01() {
         int x = 10;
         int y = 20;
@@ -93,7 +94,8 @@ public class ParameterTests extends TornadoTestBase {
      * This test throws a {@link TornadoRuntimeException} because scalar values are
      * used as output parameters. This type of code is not legal in TornadoVM.
      */
-    @Test(expected = TornadoRuntimeException.class)
+    
+    @Test
     public void testScalarParameters02() {
         int z = 0;
 

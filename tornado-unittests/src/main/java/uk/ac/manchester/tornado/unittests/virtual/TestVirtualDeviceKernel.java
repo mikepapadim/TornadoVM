@@ -23,9 +23,9 @@ import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.stream.IntStream;
 
-import org.junit.After;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import uk.ac.manchester.tornado.api.ImmutableTaskGraph;
 import uk.ac.manchester.tornado.api.TaskGraph;
@@ -58,7 +58,7 @@ public class TestVirtualDeviceKernel extends TornadoTestBase {
         }
     }
 
-    @After
+    @AfterEach
     public void after() {
         // make sure the source file generated is deleted
         File fileLog = new File(SOURCE_DIR);

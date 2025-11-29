@@ -30,9 +30,24 @@
             <scope>compile</scope>
         </dependency>
         <dependency>
-            <groupId>junit</groupId>
-            <artifactId>junit</artifactId>
-            <version>4.13.2</version>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.platform</groupId>
+            <artifactId>junit-platform-commons</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.platform</groupId>
+            <artifactId>junit-platform-engine</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.platform</groupId>
+            <artifactId>junit-platform-launcher</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.vintage</groupId>
+            <artifactId>junit-vintage-engine</artifactId>
         </dependency>
         <dependency>
             <groupId>org.apache.lucene</groupId>
@@ -42,6 +57,22 @@
 
     <build>
         <plugins>
+            <!-- Configure compiler for Java 21 with preview features -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.11.0</version>
+                <configuration>
+                    <forceJavacCompilerUse>true</forceJavacCompilerUse>
+                    <source>21</source>
+                    <target>21</target>
+                    <showDeprecation>true</showDeprecation>
+                    <compilerArgs>
+                        <arg>--enable-preview</arg>
+                    </compilerArgs>
+                </configuration>
+            </plugin>
+
             <!-- Skip the default test phase since we'll use exec plugin -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -80,11 +111,12 @@
                         <argument>--add-modules</argument>
                         <argument>ALL-SYSTEM,tornado.runtime,tornado.annotation,tornado.drivers.common,tornado.drivers.opencl</argument>
                         <argument>-cp</argument>
-                        <argument>${project.build.outputDirectory}</argument>
+                        <argument>${project.build.outputDirectory}:${project.build.directory}/dependency/*</argument>
                         <argument>-Xmx6g</argument>
                         <argument>-Dtornado.recover.bailout=False</argument>
-                        <argument>org.junit.runner.JUnitCore</argument>
-                        <argument>${test.class}</argument>
+                        <argument>org.junit.platform.console.ConsoleLauncher</argument>
+                        <argument>--scan-classpath</argument>
+                        <argument>${project.build.outputDirectory}</argument>
                     </arguments>
                 </configuration>
             </plugin>

@@ -31,8 +31,8 @@ import java.util.Random;
 import java.util.stream.IntStream;
 
 import org.junit.Assert;
-import org.junit.Ignore;
-import org.junit.Test;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
 import uk.ac.manchester.tornado.api.ImmutableTaskGraph;
 import uk.ac.manchester.tornado.api.TaskGraph;
@@ -1364,7 +1364,7 @@ public class GraphicsTests extends TornadoTestBase {
 
     }
 
-    @Ignore
+    @Disabled
     public void testMapReduceSlam3() {
 
         final int size = 16;

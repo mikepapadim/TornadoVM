@@ -25,8 +25,8 @@ import java.util.Random;
 import java.util.stream.IntStream;
 
 import org.junit.Assert;
-import org.junit.Ignore;
-import org.junit.Test;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
 import uk.ac.manchester.tornado.api.ImmutableTaskGraph;
 import uk.ac.manchester.tornado.api.TaskGraph;
@@ -44,7 +44,7 @@ import uk.ac.manchester.tornado.unittests.common.TornadoTestBase;
  * tornado-test -V uk.ac.manchester.tornado.unittests.matrices.TestMatrices
  * </code>
  */
-@Ignore
+@Disabled
 public class TestMatrices extends TornadoTestBase {
     // CHECKSTYLE:OFF
 
@@ -173,7 +173,7 @@ public class TestMatrices extends TornadoTestBase {
         }
     }
 
-    @Ignore
+    @Disabled
     @Test
     public void testFillMatrix() throws TornadoExecutionPlanException {
         final int numElements = 16;

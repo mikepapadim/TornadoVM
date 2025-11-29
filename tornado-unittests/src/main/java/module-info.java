@@ -1,6 +1,10 @@
 open module tornado.unittests {
-    requires transitive junit;
+    requires transitive org.junit.jupiter.api;
     requires transitive tornado.api;
+    requires org.junit.platform.launcher;
+    requires org.junit.platform.engine;
+    requires org.junit.platform.commons;
+    requires junit;
     requires lucene.core;
     requires java.desktop;
     requires jdk.incubator.vector;

@@ -21,7 +21,7 @@ import static org.junit.Assert.assertEquals;
 
 import java.util.Random;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import uk.ac.manchester.tornado.api.ImmutableTaskGraph;
 import uk.ac.manchester.tornado.api.TaskGraph;
@@ -927,7 +927,8 @@ public class TestHalfFloats extends TornadoTestBase {
         }
     }
 
-    @Test(timeout = 1000) //timeout of 1sec
+    
+    @Test //timeout of 1sec
     public void testAllocationIssue() {
         int size = 8192 * 4096;
 

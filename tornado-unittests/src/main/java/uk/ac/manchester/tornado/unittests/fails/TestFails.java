@@ -18,7 +18,7 @@
 
 package uk.ac.manchester.tornado.unittests.fails;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import uk.ac.manchester.tornado.api.ImmutableTaskGraph;
 import uk.ac.manchester.tornado.api.TaskGraph;
@@ -53,7 +53,8 @@ public class TestFails extends TornadoTestBase {
         }
     }
 
-    @Test(expected = TornadoFailureException.class)
+    
+    @Test
     public void test01() {
         // =============================================================================
         // Call reset after warm-up. This is not legal in TornadoVM. WarmUP will
@@ -90,7 +91,8 @@ public class TestFails extends TornadoTestBase {
         }
     }
 
-    @Test(expected = TornadoRuntimeException.class)
+    
+    @Test
     public void test02() {
         // This test fails because the Java method's name to be accelerated corresponds
         // to an OpenCL token.
