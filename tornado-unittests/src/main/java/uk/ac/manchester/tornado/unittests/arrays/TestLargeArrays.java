@@ -17,12 +17,13 @@
  */
 package uk.ac.manchester.tornado.unittests.arrays;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.stream.IntStream;
 
-import org.junit.Assume;
-import org.junit.Test;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.Test;
 
 import uk.ac.manchester.tornado.api.ImmutableTaskGraph;
 import uk.ac.manchester.tornado.api.TaskGraph;
@@ -64,7 +65,7 @@ public class TestLargeArrays extends TornadoTestBase {
         boolean hasRequiredDeviceMemory = checkDeviceMemory();
 
         // Skip all tests if device memory requirement not met
-        Assume.assumeTrue("Skipping TestLargeArrays: requires > 3GB global memory", hasRequiredDeviceMemory);
+        Assumptions.assumeTrue(hasRequiredDeviceMemory, "Skipping TestLargeArrays: requires > 3GB global memory");
     }
 
     @Test
@@ -73,10 +74,12 @@ public class TestLargeArrays extends TornadoTestBase {
         testFloatArrayWithSize(numElements);
     }
 
-    @Test(expected = TornadoOutOfMemoryException.class)
-    public void testLargeFloatArrayOverflow() throws TornadoExecutionPlanException {
-        final int numElements = 540_000_000; // Known to overflow
-        testFloatArrayWithSize(numElements);
+    @Test
+    public void testLargeFloatArrayOverflow() {
+        assertThrows(TornadoOutOfMemoryException.class, () -> {
+            final int numElements = 540_000_000; // Known to overflow
+            testFloatArrayWithSize(numElements);
+        });
     }
 
     private void testFloatArrayWithSize(int numElements) throws TornadoExecutionPlanException {

@@ -17,12 +17,12 @@
  */
 package uk.ac.manchester.tornado.unittests.loops;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Arrays;
 
-import org.junit.Ignore;
-import org.junit.Test;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
 import uk.ac.manchester.tornado.api.ImmutableTaskGraph;
 import uk.ac.manchester.tornado.api.TaskGraph;
@@ -683,10 +683,10 @@ public class TestLoops extends TornadoTestBase {
 
     /**
      * TornadoVM does not support 2D primite arrays.
-     * 
+     *
      * @throws TornadoExecutionPlanException
      */
-    @Ignore
+    @Disabled
     public void testTwoDLoopTwoDArray() throws TornadoExecutionPlanException {
         final int size = 10;
 
@@ -729,7 +729,7 @@ public class TestLoops extends TornadoTestBase {
         }
     }
 
-    @Ignore
+    @Disabled
     public void testNestedForLoopTwoDArray() throws TornadoExecutionPlanException {
         final int size = 10;
 
@@ -882,7 +882,7 @@ public class TestLoops extends TornadoTestBase {
         }
     }
 
-    @Ignore
+    @Disabled
     public void testInnerDoWhileLoop() throws TornadoExecutionPlanException {
         final int size = 100;
 
@@ -1027,6 +1027,6 @@ public class TestLoops extends TornadoTestBase {
         for (int i = 0; i < size; i++) {
             assertEquals(outSeq.get(i), outTor.get(i));
         }
-        //Assert.assertArrayEquals(outSeq, outTor);
+        //Assertions.assertArrayEquals(outSeq, outTor);
     }
 }

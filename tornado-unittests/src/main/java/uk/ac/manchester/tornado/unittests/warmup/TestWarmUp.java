@@ -17,8 +17,8 @@
  */
 package uk.ac.manchester.tornado.unittests.warmup;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import uk.ac.manchester.tornado.api.TaskGraph;
 import uk.ac.manchester.tornado.api.TornadoExecutionPlan;
@@ -62,7 +62,7 @@ public class TestWarmUp extends TornadoTestBase {
             long endTime = System.currentTimeMillis();
 
             // 7 ms of tolerance
-            Assert.assertTrue((endTime - startTime > 1000) && (endTime - startTime < 1008));
+            Assertions.assertTrue((endTime - startTime > 1000) && (endTime - startTime < 1008));
 
             // Run one more time after the warmup
             plan.withProfiler(ProfilerMode.CONSOLE).execute();

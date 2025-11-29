@@ -29,10 +29,14 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashSet;
 
-import org.junit.runner.JUnitCore;
-import org.junit.runner.Request;
-import org.junit.runner.Result;
-import org.junit.runner.notification.Failure;
+import org.junit.platform.engine.TestExecutionResult;
+import org.junit.platform.engine.discovery.DiscoverySelectors;
+import org.junit.platform.launcher.Launcher;
+import org.junit.platform.launcher.LauncherDiscoveryRequest;
+import org.junit.platform.launcher.TestExecutionListener;
+import org.junit.platform.launcher.TestIdentifier;
+import org.junit.platform.launcher.core.LauncherDiscoveryRequestBuilder;
+import org.junit.platform.launcher.core.LauncherFactory;
 
 import uk.ac.manchester.tornado.api.exceptions.TornadoDeviceFP16NotSupported;
 import uk.ac.manchester.tornado.api.exceptions.TornadoDeviceFP64NotSupported;
@@ -49,16 +53,163 @@ public class TornadoHelper {
 
     public static final boolean OPTIMIZE_LOAD_STORE_SPIRV = Boolean.parseBoolean(System.getProperty("tornado.spirv.loadstore", "False"));
 
-    private static void printResult(Result result) {
-        System.out.printf("Test ran: %s, Failed: %s%n", result.getRunCount(), result.getFailureCount());
-    }
-
     private static void printResult(int success, int failed, int notSupported) {
         System.out.printf("Test ran: %s, Failed: %s, Unsupported: %s%n", (success + failed + notSupported), failed, notSupported);
     }
 
     private static void printResult(int success, int failed, int notSupported, StringBuilder buffer) {
         buffer.append(String.format("Test ran: %s, Failed: %s, Unsupported: %s%n", (success + failed + notSupported), failed, notSupported));
+    }
+
+    static class TestResultListener implements TestExecutionListener {
+        int successCounter = 0;
+        int failedCounter = 0;
+        int notSupported = 0;
+
+        @Override
+        public void executionFinished(TestIdentifier testIdentifier, TestExecutionResult testExecutionResult) {
+            if (testIdentifier.isTest()) {
+                if (testExecutionResult.getStatus() == TestExecutionResult.Status.SUCCESSFUL) {
+                    successCounter++;
+                } else if (testExecutionResult.getStatus() == TestExecutionResult.Status.FAILED) {
+                    Throwable throwable = testExecutionResult.getThrowable().orElse(null);
+                    if (isUnsupportedException(throwable)) {
+                        notSupported++;
+                    } else {
+                        failedCounter++;
+                    }
+                } else if (testExecutionResult.getStatus() == TestExecutionResult.Status.ABORTED) {
+                    notSupported++;
+                }
+            }
+        }
+
+        private boolean isUnsupportedException(Throwable throwable) {
+            if (throwable == null) {
+                return false;
+            }
+            return throwable instanceof UnsupportedConfigurationException
+                    || throwable instanceof TornadoVMPTXNotSupported
+                    || throwable instanceof TornadoNoOpenCLPlatformException
+                    || throwable instanceof TornadoVMMultiDeviceNotSupported
+                    || throwable instanceof TornadoVMOpenCLNotSupported
+                    || throwable instanceof TornadoVMSPIRVNotSupported
+                    || throwable instanceof TornadoDeviceFP64NotSupported
+                    || throwable instanceof TornadoDeviceFP16NotSupported;
+        }
+
+        int getTotalRun() {
+            return successCounter + failedCounter + notSupported;
+        }
+    }
+
+    static class VerboseTestResultListener implements TestExecutionListener {
+        int successCounter = 0;
+        int failedCounter = 0;
+        int notSupported = 0;
+        StringBuilder bufferConsole;
+        StringBuilder bufferFile;
+        HashSet<Method> unsupportedMethods;
+
+        VerboseTestResultListener(StringBuilder bufferConsole, StringBuilder bufferFile, HashSet<Method> unsupportedMethods) {
+            this.bufferConsole = bufferConsole;
+            this.bufferFile = bufferFile;
+            this.unsupportedMethods = unsupportedMethods;
+        }
+
+        @Override
+        public void executionStarted(TestIdentifier testIdentifier) {
+            if (testIdentifier.isTest()) {
+                String methodName = testIdentifier.getDisplayName();
+                if (methodName.endsWith("()")) {
+                    methodName = methodName.substring(0, methodName.length() - 2);
+                }
+                String message = String.format("%-50s", "\tRunning test: " + ColorsTerminal.BLUE + methodName + ColorsTerminal.RESET);
+                bufferConsole.append(message);
+                bufferFile.append(message);
+            }
+        }
+
+        @Override
+        public void executionFinished(TestIdentifier testIdentifier, TestExecutionResult testExecutionResult) {
+            if (!testIdentifier.isTest()) {
+                return;
+            }
+
+            String message;
+            if (testExecutionResult.getStatus() == TestExecutionResult.Status.SUCCESSFUL) {
+                message = String.format("%20s", " ................ " + ColorsTerminal.GREEN + " [PASS] " + ColorsTerminal.RESET + "\n");
+                bufferConsole.append(message);
+                bufferFile.append(message);
+                successCounter++;
+            } else if (testExecutionResult.getStatus() == TestExecutionResult.Status.FAILED) {
+                Throwable throwable = testExecutionResult.getThrowable().orElse(null);
+
+                if (throwable instanceof UnsupportedConfigurationException) {
+                    message = String.format("%20s", " ................ " + ColorsTerminal.PURPLE + " [UNSUPPORTED CONFIGURATION: At least 2 accelerators are required] " + ColorsTerminal.RESET + "\n");
+                    bufferConsole.append(message);
+                    bufferFile.append(message);
+                    notSupported++;
+                } else if (throwable instanceof TornadoVMPTXNotSupported) {
+                    message = String.format("%20s", " ................ " + ColorsTerminal.PURPLE + " [PTX CONFIGURATION UNSUPPORTED] " + ColorsTerminal.RESET + "\n");
+                    bufferConsole.append(message);
+                    bufferFile.append(message);
+                    notSupported++;
+                } else if (throwable instanceof TornadoNoOpenCLPlatformException) {
+                    message = String.format("%20s", " ................ " + ColorsTerminal.PURPLE + " [OPENCL CONFIGURATION UNSUPPORTED] " + ColorsTerminal.RESET + "\n");
+                    bufferConsole.append(message);
+                    bufferFile.append(message);
+                    notSupported++;
+                } else if (throwable instanceof TornadoVMMultiDeviceNotSupported) {
+                    message = String.format("%20s", " ................ " + ColorsTerminal.PURPLE + " [[UNSUPPORTED] MULTI-DEVICE CONFIGURATION REQUIRED] " + ColorsTerminal.RESET + "\n");
+                    bufferConsole.append(message);
+                    bufferFile.append(message);
+                    notSupported++;
+                } else if (throwable instanceof TornadoVMOpenCLNotSupported) {
+                    message = String.format("%20s", " ................ " + ColorsTerminal.PURPLE + " [OPENCL CONFIGURATION UNSUPPORTED] " + ColorsTerminal.RESET + "\n");
+                    bufferConsole.append(message);
+                    bufferFile.append(message);
+                    notSupported++;
+                } else if (throwable instanceof TornadoVMSPIRVNotSupported) {
+                    message = String.format("%20s", " ................ " + ColorsTerminal.PURPLE + " [SPIRV CONFIGURATION UNSUPPORTED] " + ColorsTerminal.RESET + "\n");
+                    bufferConsole.append(message);
+                    bufferFile.append(message);
+                    notSupported++;
+                } else if (throwable instanceof SPIRVOptNotSupported && OPTIMIZE_LOAD_STORE_SPIRV) {
+                    message = String.format("%20s", " ................ " + ColorsTerminal.RED + " [SPIRV OPTIMIZATION NOT SUPPORTED] " + ColorsTerminal.RESET + "\n");
+                    bufferConsole.append(message);
+                    bufferFile.append(message);
+                    failedCounter++;
+                } else if (throwable instanceof TornadoDeviceFP64NotSupported) {
+                    message = String.format("%20s", " ................ " + ColorsTerminal.YELLOW + " [FP64 UNSUPPORTED FOR CURRENT DEVICE] " + ColorsTerminal.RESET + "\n");
+                    bufferConsole.append(message);
+                    bufferFile.append(message);
+                    notSupported++;
+                } else if (throwable instanceof TornadoDeviceFP16NotSupported) {
+                    message = String.format("%20s", " ................ " + ColorsTerminal.YELLOW + " [FP16 UNSUPPORTED FOR CURRENT DEVICE] " + ColorsTerminal.RESET + "\n");
+                    bufferConsole.append(message);
+                    bufferFile.append(message);
+                    notSupported++;
+                } else {
+                    message = String.format("%20s", " ................ " + ColorsTerminal.RED + " [FAILED] " + ColorsTerminal.RESET + "\n");
+                    bufferConsole.append(message);
+                    bufferFile.append(message);
+                    failedCounter++;
+                    if (throwable != null) {
+                        bufferConsole.append("\t\t\\_[REASON] " + throwable.getMessage() + "\n");
+                        bufferFile.append("\t\t\\_[REASON] " + throwable.getMessage() + "\n\t");
+                        for (StackTraceElement element : throwable.getStackTrace()) {
+                            bufferFile.append(element.toString() + "\n\t");
+                        }
+                    }
+                }
+            } else if (testExecutionResult.getStatus() == TestExecutionResult.Status.ABORTED) {
+                message = String.format("%20s", " ................ " + ColorsTerminal.YELLOW + " [ABORTED] " + ColorsTerminal.RESET + "\n");
+                bufferConsole.append(message);
+                bufferFile.append(message);
+                notSupported++;
+            }
+        }
     }
 
     static boolean getProperty(String property) {
@@ -91,9 +242,9 @@ public class TornadoHelper {
             boolean testEnabled = false;
             boolean ignoreTest = false;
             for (Annotation a : annotations) {
-                if (a instanceof org.junit.Ignore) {
+                if (a instanceof org.junit.jupiter.api.Disabled) {
                     ignoreTest = true;
-                } else if (a instanceof org.junit.Test) {
+                } else if (a instanceof org.junit.jupiter.api.Test) {
                     testEnabled = true;
                 } else if (a instanceof TornadoNotSupported) {
                     testEnabled = true;
@@ -137,11 +288,10 @@ public class TornadoHelper {
         bufferFile.append("\n");
 
         for (Method m : methodsToTest) {
-            String message = String.format("%-50s", "\tRunning test: " + ColorsTerminal.BLUE + m.getName() + ColorsTerminal.RESET);
-            bufferConsole.append(message);
-            bufferFile.append(message);
-
             if (suite != null && suite.unsupportedMethods.contains(m)) {
+                String message = String.format("%-50s", "\tRunning test: " + ColorsTerminal.BLUE + m.getName() + ColorsTerminal.RESET);
+                bufferConsole.append(message);
+                bufferFile.append(message);
                 message = String.format("%20s", " ................ " + ColorsTerminal.YELLOW + " [NOT VALID TEST: UNSUPPORTED] " + ColorsTerminal.RESET + "\n");
                 bufferConsole.append(message);
                 bufferFile.append(message);
@@ -149,98 +299,19 @@ public class TornadoHelper {
                 continue;
             }
 
-            Request request = Request.method(klass, m.getName());
-            Result result = new JUnitCore().run(request);
+            // Execute using JUnit Platform
+            LauncherDiscoveryRequest request = LauncherDiscoveryRequestBuilder.request()
+                    .selectors(DiscoverySelectors.selectMethod(klass, m))
+                    .build();
 
-            if (result.wasSuccessful()) {
-                message = String.format("%20s", " ................ " + ColorsTerminal.GREEN + " [PASS] " + ColorsTerminal.RESET + "\n");
-                bufferConsole.append(message);
-                bufferFile.append(message);
-                successCounter++;
-            } else {
-                // If UnsupportedConfigurationException is thrown this means that test did not
-                // fail, it simply can't be run on current configuration
-                if (result.getFailures().stream().filter(e -> (e.getException() instanceof UnsupportedConfigurationException)).count() > 0) {
-                    message = String.format("%20s", " ................ " + ColorsTerminal.PURPLE + " [UNSUPPORTED CONFIGURATION: At least 2 accelerators are required] " + ColorsTerminal.RESET + "\n");
-                    bufferConsole.append(message);
-                    bufferFile.append(message);
-                    notSupported++;
-                    continue;
-                }
+            VerboseTestResultListener listener = new VerboseTestResultListener(bufferConsole, bufferFile, suite != null ? suite.unsupportedMethods : new HashSet<>());
+            Launcher launcher = LauncherFactory.create();
+            launcher.registerTestExecutionListeners(listener);
+            launcher.execute(request);
 
-                if (result.getFailures().stream().anyMatch(e -> (e.getException() instanceof TornadoVMPTXNotSupported))) {
-                    message = String.format("%20s", " ................ " + ColorsTerminal.PURPLE + " [PTX CONFIGURATION UNSUPPORTED] " + ColorsTerminal.RESET + "\n");
-                    bufferConsole.append(message);
-                    bufferFile.append(message);
-                    notSupported++;
-                    continue;
-                }
-
-                if (result.getFailures().stream().anyMatch(e -> (e.getException() instanceof TornadoNoOpenCLPlatformException))) {
-                    message = String.format("%20s", " ................ " + ColorsTerminal.PURPLE + " [OPENCL CONFIGURATION UNSUPPORTED] " + ColorsTerminal.RESET + "\n");
-                    bufferConsole.append(message);
-                    bufferFile.append(message);
-                    notSupported++;
-                    continue;
-                }
-
-                if (result.getFailures().stream().anyMatch(e -> (e.getException() instanceof TornadoVMMultiDeviceNotSupported))) {
-                    message = String.format("%20s", " ................ " + ColorsTerminal.PURPLE + " [[UNSUPPORTED] MULTI-DEVICE CONFIGURATION REQUIRED] " + ColorsTerminal.RESET + "\n");
-                    bufferConsole.append(message);
-                    bufferFile.append(message);
-                    notSupported++;
-                    continue;
-                }
-
-                if (result.getFailures().stream().anyMatch(e -> (e.getException() instanceof TornadoVMOpenCLNotSupported))) {
-                    message = String.format("%20s", " ................ " + ColorsTerminal.PURPLE + " [OPENCL CONFIGURATION UNSUPPORTED] " + ColorsTerminal.RESET + "\n");
-                    bufferConsole.append(message);
-                    bufferFile.append(message);
-                    notSupported++;
-                    continue;
-                }
-
-                if (result.getFailures().stream().anyMatch(e -> (e.getException() instanceof TornadoVMSPIRVNotSupported))) {
-                    message = String.format("%20s", " ................ " + ColorsTerminal.PURPLE + " [SPIRV CONFIGURATION UNSUPPORTED] " + ColorsTerminal.RESET + "\n");
-                    bufferConsole.append(message);
-                    bufferFile.append(message);
-                    notSupported++;
-                    continue;
-                }
-
-                if (result.getFailures().stream().anyMatch(e -> (e.getException() instanceof SPIRVOptNotSupported)) && OPTIMIZE_LOAD_STORE_SPIRV) {
-                    message = String.format("%20s", " ................ " + ColorsTerminal.RED + " [SPIRV OPTIMIZATION NOT SUPPORTED] " + ColorsTerminal.RESET + "\n");
-                    bufferConsole.append(message);
-                    bufferFile.append(message);
-                    failedCounter++;
-                    continue;
-                }
-
-                if (result.getFailures().stream().anyMatch(e -> (e.getException() instanceof TornadoDeviceFP64NotSupported))) {
-                    message = String.format("%20s", " ................ " + ColorsTerminal.YELLOW + " [FP64 UNSUPPORTED FOR CURRENT DEVICE] " + ColorsTerminal.RESET + "\n");
-                    bufferConsole.append(message);
-                    bufferFile.append(message);
-                    notSupported++;
-                    continue;
-                }
-
-                if (result.getFailures().stream().anyMatch(e -> (e.getException() instanceof TornadoDeviceFP16NotSupported))) {
-                    message = String.format("%20s", " ................ " + ColorsTerminal.YELLOW + " [FP16 UNSUPPORTED FOR CURRENT DEVICE] " + ColorsTerminal.RESET + "\n");
-                    bufferConsole.append(message);
-                    bufferFile.append(message);
-                    notSupported++;
-                    continue;
-                }
-
-                message = String.format("%20s", " ................ " + ColorsTerminal.RED + " [FAILED] " + ColorsTerminal.RESET + "\n");
-                bufferConsole.append(message);
-                bufferFile.append(message);
-                failedCounter++;
-                for (Failure failure : result.getFailures()) {
-                    bufferConsole.append("\t\t\\_[REASON] " + failure.getMessage() + "\n");
-                    bufferFile.append("\t\t\\_[REASON] " + failure.getMessage() + "\n\t" + failure.getTrace() + "\n" + failure.getDescription() + "\n" + failure.getException());
-                }
-            }
+            successCounter += listener.successCounter;
+            failedCounter += listener.failedCounter;
+            notSupported += listener.notSupported;
         }
 
         printResult(successCounter, failedCounter, notSupported, bufferConsole);
@@ -259,15 +330,32 @@ public class TornadoHelper {
     }
 
     static void runTestClassAndMethod(String klassName, String methodName) throws ClassNotFoundException {
-        Request request = Request.method(Class.forName(klassName), methodName);
-        Result result = new JUnitCore().run(request);
-        printResult(result);
+        Class<?> klass = Class.forName(klassName);
+        Method method = getMethodForName(klass, methodName);
+
+        LauncherDiscoveryRequest request = LauncherDiscoveryRequestBuilder.request()
+                .selectors(DiscoverySelectors.selectMethod(klass, method))
+                .build();
+
+        TestResultListener listener = new TestResultListener();
+        Launcher launcher = LauncherFactory.create();
+        launcher.registerTestExecutionListeners(listener);
+        launcher.execute(request);
+
+        printResult(listener.successCounter, listener.failedCounter, listener.notSupported);
     }
 
     static void runTestClass(String klassName) throws ClassNotFoundException {
-        Request request = Request.aClass(Class.forName(klassName));
-        Result result = new JUnitCore().run(request);
-        printResult(result);
+        LauncherDiscoveryRequest request = LauncherDiscoveryRequestBuilder.request()
+                .selectors(DiscoverySelectors.selectClass(Class.forName(klassName)))
+                .build();
+
+        TestResultListener listener = new TestResultListener();
+        Launcher launcher = LauncherFactory.create();
+        launcher.registerTestExecutionListeners(listener);
+        launcher.execute(request);
+
+        printResult(listener.successCounter, listener.failedCounter, listener.notSupported);
     }
 
     static class TestSuiteCollection {

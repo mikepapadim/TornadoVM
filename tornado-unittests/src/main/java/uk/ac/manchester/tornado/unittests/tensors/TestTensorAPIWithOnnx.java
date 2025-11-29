@@ -28,8 +28,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import ai.onnxruntime.OnnxTensor;
 import ai.onnxruntime.OnnxValue;
@@ -105,7 +105,7 @@ public class TestTensorAPIWithOnnx extends TornadoTestBase {
 
             }
         } finally {
-            Assert.assertNotNull(outputTensor);
+            Assertions.assertNotNull(outputTensor);
         }
     }
 

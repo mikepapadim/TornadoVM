@@ -17,11 +17,13 @@
  */
 package uk.ac.manchester.tornado.unittests.foundation;
 
-import org.junit.runner.RunWith;
-import org.junit.runners.Suite;
+import org.junit.platform.suite.api.Suite;
+import org.junit.platform.suite.api.SuiteDisplayName;
+import org.junit.platform.suite.api.SelectClasses;
 
-@RunWith(Suite.class)
-@Suite.SuiteClasses({
+@Suite
+@SuiteDisplayName("Foundation Test Suite")
+@SelectClasses({
         TestFloats.class,
         TestIntegers.class,
         TestDoubles.class,

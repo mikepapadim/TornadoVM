@@ -17,13 +17,13 @@
  */
 package uk.ac.manchester.tornado.unittests.prebuilt;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.List;
 import java.util.stream.IntStream;
 
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import uk.ac.manchester.tornado.api.AccessorParameters;
 import uk.ac.manchester.tornado.api.GridScheduler;
@@ -62,7 +62,7 @@ public class PrebuiltTests extends TornadoTestBase {
     private static TornadoVMBackendType backendType;
     private static boolean coops;
 
-    @BeforeClass
+    @BeforeAll
     public static void init() {
         backendType = TornadoRuntimeProvider.getTornadoRuntime().getBackendType(0);
         defaultDevice = TornadoRuntimeProvider.getTornadoRuntime().getBackend(0).getDevice(0);

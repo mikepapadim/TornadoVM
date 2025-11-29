@@ -17,11 +17,13 @@
  */
 package uk.ac.manchester.tornado.unittests.vectortypes;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTimeout;
 
+import java.time.Duration;
 import java.util.Random;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import uk.ac.manchester.tornado.api.ImmutableTaskGraph;
 import uk.ac.manchester.tornado.api.TaskGraph;
@@ -927,14 +929,16 @@ public class TestHalfFloats extends TornadoTestBase {
         }
     }
 
-    @Test(timeout = 1000) //timeout of 1sec
+    @Test
     public void testAllocationIssue() {
-        int size = 8192 * 4096;
+        assertTimeout(Duration.ofMillis(1000), () -> {
+            int size = 8192 * 4096;
 
-        VectorHalf4 buffer = new VectorHalf4(size);
-        for (int x = 0; x < size; x++) {
-            buffer.set(x, new Half4(new HalfFloat(x), new HalfFloat(x), new HalfFloat(x), new HalfFloat(x)));
-        }
+            VectorHalf4 buffer = new VectorHalf4(size);
+            for (int x = 0; x < size; x++) {
+                buffer.set(x, new Half4(new HalfFloat(x), new HalfFloat(x), new HalfFloat(x), new HalfFloat(x)));
+            }
+        });
     }
 
 }
