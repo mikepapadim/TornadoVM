@@ -20,6 +20,7 @@ package uk.ac.manchester.tornado.unittests.api;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
@@ -490,15 +491,17 @@ public class TestAPI extends TornadoTestBase {
         }
     }
 
-    
+
     @Test
-    public void testBuildWithSegmentsWrongSize() {
+    void testBuildWithSegmentsWrongSize() {
         final int num_elements = 10;
         final int additional_bytes = 1;
         final long byteSize = Integer.BYTES * num_elements + additional_bytes;
 
-        MemorySegment m = Arena.ofAuto().allocate(byteSize);
-        IntArray intArray = IntArray.fromSegment(m);
+        assertThrows(IllegalArgumentException.class, () -> {
+            MemorySegment m = Arena.ofAuto().allocate(byteSize);
+            IntArray intArray = IntArray.fromSegment(m);
+        });
     }
 
     @Test

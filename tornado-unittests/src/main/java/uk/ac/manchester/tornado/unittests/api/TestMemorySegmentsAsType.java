@@ -32,6 +32,7 @@ import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 
 import static java.lang.foreign.ValueLayout.JAVA_INT;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * <p>
@@ -48,24 +49,28 @@ public class TestMemorySegmentsAsType extends TornadoTestBase {
         float test = a.getAtIndex(ValueLayout.JAVA_FLOAT, 5);
     }
 
-    
+
     @Test
-    public void testMemorySegmentAsInput() throws TornadoExecutionPlanException {
-        MemorySegment segment;
-        long segmentByteSize = numElements * ValueLayout.JAVA_FLOAT.byteSize();
+    void testMemorySegmentAsInput() {
+        assertThrows(TornadoExecutionPlanException.class, () -> {
 
-        segment = Arena.ofAuto().allocate(segmentByteSize, 1);
-        segment.setAtIndex(JAVA_INT, 0, numElements);
+            long segmentByteSize = numElements * ValueLayout.JAVA_FLOAT.byteSize();
+            MemorySegment segment = Arena.ofAuto().allocate(segmentByteSize, 1);
 
-        TaskGraph taskGraph = new TaskGraph("s0") //
-                .transferToDevice(DataTransferMode.FIRST_EXECUTION, segment) //
-                .task("t0", TestMemorySegmentsAsType::getMemorySegment, segment) //
-                .transferToHost(DataTransferMode.EVERY_EXECUTION, segment);
+            // Write metadata
+            segment.setAtIndex(JAVA_INT, 0, numElements);
 
-        ImmutableTaskGraph immutableTaskGraph = taskGraph.snapshot();
-        try (TornadoExecutionPlan executionPlan = new TornadoExecutionPlan(immutableTaskGraph)) {
-            executionPlan.execute();
-        }
+            TaskGraph taskGraph = new TaskGraph("s0")
+                    .transferToDevice(DataTransferMode.FIRST_EXECUTION, segment)
+                    .task("t0", TestMemorySegmentsAsType::getMemorySegment, segment)
+                    .transferToHost(DataTransferMode.EVERY_EXECUTION, segment);
+
+            ImmutableTaskGraph immutableTaskGraph = taskGraph.snapshot();
+
+            try (TornadoExecutionPlan executionPlan = new TornadoExecutionPlan(immutableTaskGraph)) {
+                executionPlan.execute();   // <-- this is expected to throw
+            }
+        });
     }
 
 }

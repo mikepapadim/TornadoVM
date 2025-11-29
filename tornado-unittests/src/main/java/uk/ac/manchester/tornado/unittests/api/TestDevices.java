@@ -21,6 +21,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
 import java.util.stream.Stream;
@@ -35,6 +36,7 @@ import uk.ac.manchester.tornado.api.enums.TornadoDeviceType;
 import uk.ac.manchester.tornado.api.enums.TornadoVMBackendType;
 import uk.ac.manchester.tornado.api.exceptions.TornadoBackendNotFound;
 import uk.ac.manchester.tornado.api.exceptions.TornadoDeviceNotFound;
+import uk.ac.manchester.tornado.api.exceptions.TornadoRuntimeException;
 import uk.ac.manchester.tornado.unittests.common.TornadoTestBase;
 
 /**
@@ -55,7 +57,9 @@ public class TestDevices extends TornadoTestBase {
     
     @Test
     public void test01() {
+        assertThrows(TornadoBackendNotFound.class, () -> {
         TornadoDevice device = TornadoExecutionPlan.getDevice(100, 0);
+        });
     }
 
     /**
@@ -65,7 +69,9 @@ public class TestDevices extends TornadoTestBase {
     
     @Test
     public void test02() {
+        assertThrows(TornadoDeviceNotFound.class, () -> {
         TornadoDevice device = TornadoExecutionPlan.getDevice(0, 100);
+        });
     }
 
     /**

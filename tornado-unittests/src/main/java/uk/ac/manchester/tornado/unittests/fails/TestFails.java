@@ -28,9 +28,12 @@ import uk.ac.manchester.tornado.api.annotations.Parallel;
 import uk.ac.manchester.tornado.api.enums.DataTransferMode;
 import uk.ac.manchester.tornado.api.exceptions.TornadoFailureException;
 import uk.ac.manchester.tornado.api.exceptions.TornadoRuntimeException;
+import uk.ac.manchester.tornado.api.exceptions.TornadoTaskRuntimeException;
 import uk.ac.manchester.tornado.api.runtime.TornadoRuntimeProvider;
 import uk.ac.manchester.tornado.api.types.arrays.FloatArray;
 import uk.ac.manchester.tornado.unittests.common.TornadoTestBase;
+
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Test bad uses of the TornadoVM API. It should throw exceptions when possible
@@ -56,6 +59,7 @@ public class TestFails extends TornadoTestBase {
     
     @Test
     public void test01() {
+        assertThrows(TornadoFailureException.class, () -> {
         // =============================================================================
         // Call reset after warm-up. This is not legal in TornadoVM. WarmUP will
         // initialize the heap and the code cache. If reset is called, it will clean all
@@ -83,6 +87,8 @@ public class TestFails extends TornadoTestBase {
         executionPlanPlan.withPreCompilation().execute();
         reset();
         executionPlanPlan.execute();
+        });
+
     }
 
     private static void kernel(FloatArray a, FloatArray b) {
@@ -94,6 +100,7 @@ public class TestFails extends TornadoTestBase {
     
     @Test
     public void test02() {
+        assertThrows(TornadoRuntimeException.class, () -> {
         // This test fails because the Java method's name to be accelerated corresponds
         // to an OpenCL token.
 
@@ -109,6 +116,8 @@ public class TestFails extends TornadoTestBase {
         ImmutableTaskGraph immutableTaskGraph = taskGraph.snapshot();
         TornadoExecutionPlan executionPlanPlan = new TornadoExecutionPlan(immutableTaskGraph);
         executionPlanPlan.execute();
+        });
     }
+
 
 }
