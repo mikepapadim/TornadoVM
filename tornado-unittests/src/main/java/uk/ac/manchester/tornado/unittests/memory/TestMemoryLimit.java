@@ -18,6 +18,7 @@
 package uk.ac.manchester.tornado.unittests.memory;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -78,25 +79,26 @@ public class TestMemoryLimit extends TestMemoryCommon {
         }
     }
 
-    
     @Test
     public void testWithMemoryLimitUnder() {
-        TaskGraph taskGraph = new TaskGraph("s0") //
-                .transferToDevice(DataTransferMode.FIRST_EXECUTION, a, b) //
-                .task("t0", TestHello::add, a, b, c) //
-                .transferToHost(DataTransferMode.EVERY_EXECUTION, c);
+        assertThrows(TornadoMemoryException.class, () -> {
+            TaskGraph taskGraph = new TaskGraph("s0") //
+                    .transferToDevice(DataTransferMode.FIRST_EXECUTION, a, b) //
+                    .task("t0", TestHello::add, a, b, c) //
+                    .transferToHost(DataTransferMode.EVERY_EXECUTION, c);
 
-        ImmutableTaskGraph immutableTaskGraph = taskGraph.snapshot();
-        TornadoExecutionPlan executionPlan = new TornadoExecutionPlan(immutableTaskGraph);
+            ImmutableTaskGraph immutableTaskGraph = taskGraph.snapshot();
+            TornadoExecutionPlan executionPlan = new TornadoExecutionPlan(immutableTaskGraph);
 
-        // Limit the amount of memory to be used on the target accelerator.
-        // Since the memory required is ~900MB, the TornadoVM runtime will throw an
-        // exception because we set the limit to 512MB.
-        executionPlan.withMemoryLimit("512MB").execute();
+            // Limit the amount of memory to be used on the target accelerator.
+            // Since the memory required is ~900MB, the TornadoVM runtime will throw an
+            // exception because we set the limit to 512MB.
+            executionPlan.withMemoryLimit("512MB").execute();
 
-        for (int i = 0; i < c.getSize(); i++) {
-            assertEquals(a.get(i) + b.get(i), c.get(i), 0.001);
-        }
+            for (int i = 0; i < c.getSize(); i++) {
+                assertEquals(a.get(i) + b.get(i), c.get(i), 0.001);
+            }
+        });
     }
 
     /**
