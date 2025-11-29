@@ -33,8 +33,10 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.platform.launcher.Launcher;
 import org.junit.platform.launcher.LauncherDiscoveryRequest;
+import org.junit.platform.launcher.TestExecutionListener;
 import org.junit.platform.launcher.core.LauncherDiscoveryRequestBuilder;
 import org.junit.platform.launcher.core.LauncherFactory;
+import org.junit.platform.engine.TestExecutionResult;
 import org.junit.platform.engine.discovery.DiscoverySelectors;
 
 import uk.ac.manchester.tornado.unittests.tools.Exceptions.UnsupportedConfigurationException;
@@ -49,8 +51,8 @@ import uk.ac.manchester.tornado.unittests.common.TornadoVMPTXNotSupported;
 import uk.ac.manchester.tornado.unittests.common.TornadoVMSPIRVNotSupported;
 
 class TestResultCapture {
-    boolean successful = true;
-    Throwable lastFailure = null;
+    private boolean successful = true;
+    private Throwable lastFailure = null;
 
     boolean isSuccessful() {
         return successful;
@@ -58,6 +60,24 @@ class TestResultCapture {
 
     Throwable getLastFailure() {
         return lastFailure;
+    }
+
+    @SuppressWarnings("rawtypes")
+    TestExecutionListener getListener() {
+        return new TestExecutionListener() {
+            public void executionFinished(Object testIdentifier, Object testExecutionResult) {
+                try {
+                    if ((boolean) testIdentifier.getClass().getMethod("isTest").invoke(testIdentifier)) {
+                        if (((TestExecutionResult) testExecutionResult).getStatus() == TestExecutionResult.Status.FAILED) {
+                            successful = false;
+                            ((TestExecutionResult) testExecutionResult).getThrowable().ifPresent(t -> lastFailure = t);
+                        }
+                    }
+                } catch (Exception e) {
+                    // Ignore errors
+                }
+            }
+        };
     }
 }
 
@@ -270,18 +290,13 @@ public class TornadoHelper {
     }
 
     private static TestResultCapture runJUnit5TestMethod(Class<?> klass, String methodName) {
+        LauncherDiscoveryRequest request = LauncherDiscoveryRequestBuilder.request()
+                .selectors(DiscoverySelectors.selectMethod(klass, methodName))
+                .build();
+        Launcher launcher = LauncherFactory.create();
         TestResultCapture capture = new TestResultCapture();
-        try {
-            LauncherDiscoveryRequest request = LauncherDiscoveryRequestBuilder.request()
-                    .selectors(DiscoverySelectors.selectMethod(klass, methodName))
-                    .build();
-
-            Launcher launcher = LauncherFactory.create();
-            launcher.execute(request);
-        } catch (Exception e) {
-            capture.lastFailure = e;
-            capture.successful = false;
-        }
+        launcher.registerTestExecutionListeners(capture.getListener());
+        launcher.execute(request);
         return capture;
     }
 
@@ -289,7 +304,6 @@ public class TornadoHelper {
         LauncherDiscoveryRequest request = LauncherDiscoveryRequestBuilder.request()
                 .selectors(DiscoverySelectors.selectMethod(Class.forName(klassName), methodName))
                 .build();
-
         Launcher launcher = LauncherFactory.create();
         launcher.execute(request);
     }
@@ -298,7 +312,6 @@ public class TornadoHelper {
         LauncherDiscoveryRequest request = LauncherDiscoveryRequestBuilder.request()
                 .selectors(DiscoverySelectors.selectClass(Class.forName(klassName)))
                 .build();
-
         Launcher launcher = LauncherFactory.create();
         launcher.execute(request);
     }
