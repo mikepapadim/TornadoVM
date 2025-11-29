@@ -62,6 +62,11 @@ class TestResultCapture {
         return lastFailure;
     }
 
+    void recordFailure(Throwable failure) {
+        successful = false;
+        lastFailure = failure;
+    }
+
     @SuppressWarnings("rawtypes")
     TestExecutionListener getListener() {
         return new TestExecutionListener() {
@@ -139,7 +144,43 @@ public class TornadoHelper {
 
     static void runTestVerbose(String klassName, String methodName) throws ClassNotFoundException {
 
-        Class<?> klass = Class.forName(klassName);
+        Class<?> klass;
+        try {
+            klass = Class.forName(klassName);
+        } catch (Exception e) {
+            // Class loading failed - report as test failure
+            StringBuilder bufferConsole = new StringBuilder();
+            StringBuilder bufferFile = new StringBuilder();
+            bufferConsole.append("Test: " + klassName);
+            bufferFile.append("Test: " + klassName);
+            if (methodName != null) {
+                bufferConsole.append("#" + methodName);
+                bufferFile.append("#" + methodName);
+            }
+            bufferConsole.append("\n");
+            bufferFile.append("\n");
+
+            String message = String.format("%20s", " ................ " + ColorsTerminal.RED + " [FAILED] " + ColorsTerminal.RESET + "\n");
+            bufferConsole.append(message);
+            bufferFile.append(message);
+            bufferConsole.append("\t\t\\_[REASON] Class loading failed: " + e.getClass().getSimpleName() + ": " + e.getMessage() + "\n");
+            bufferFile.append("\t\t\\_[REASON] Class loading failed: " + e.getClass().getSimpleName() + ": " + e.getMessage() + "\n\t" + e + "\n");
+
+            printResult(0, 1, 0, bufferConsole);
+            printResult(0, 1, 0, bufferFile);
+            System.out.println(bufferConsole);
+
+            try (BufferedWriter w = new BufferedWriter(new FileWriter("tornado_unittests.log", true))) {
+                DateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss");
+                Date date = new Date();
+                w.write("\n" + dateFormat.format(date) + "\n");
+                w.write(bufferFile.toString());
+            } catch (IOException ex) {
+                ex.printStackTrace();
+            }
+            return;
+        }
+
         ArrayList<Method> methodsToTest = new ArrayList<>();
         TestSuiteCollection suite = null;
         if (methodName == null) {
@@ -290,30 +331,42 @@ public class TornadoHelper {
     }
 
     private static TestResultCapture runJUnit5TestMethod(Class<?> klass, String methodName) {
-        LauncherDiscoveryRequest request = LauncherDiscoveryRequestBuilder.request()
-                .selectors(DiscoverySelectors.selectMethod(klass, methodName))
-                .build();
-        Launcher launcher = LauncherFactory.create();
         TestResultCapture capture = new TestResultCapture();
-        launcher.registerTestExecutionListeners(capture.getListener());
-        launcher.execute(request);
+        try {
+            LauncherDiscoveryRequest request = LauncherDiscoveryRequestBuilder.request()
+                    .selectors(DiscoverySelectors.selectMethod(klass, methodName))
+                    .build();
+            Launcher launcher = LauncherFactory.create();
+            launcher.registerTestExecutionListeners(capture.getListener());
+            launcher.execute(request);
+        } catch (Exception e) {
+            capture.recordFailure(e);
+        }
         return capture;
     }
 
     static void runTestClassAndMethod(String klassName, String methodName) throws ClassNotFoundException {
-        LauncherDiscoveryRequest request = LauncherDiscoveryRequestBuilder.request()
-                .selectors(DiscoverySelectors.selectMethod(Class.forName(klassName), methodName))
-                .build();
-        Launcher launcher = LauncherFactory.create();
-        launcher.execute(request);
+        try {
+            LauncherDiscoveryRequest request = LauncherDiscoveryRequestBuilder.request()
+                    .selectors(DiscoverySelectors.selectMethod(Class.forName(klassName), methodName))
+                    .build();
+            Launcher launcher = LauncherFactory.create();
+            launcher.execute(request);
+        } catch (Exception e) {
+            System.out.printf("Test: %s#%s failed to load: %s%n", klassName, methodName, e.getMessage());
+        }
     }
 
     static void runTestClass(String klassName) throws ClassNotFoundException {
-        LauncherDiscoveryRequest request = LauncherDiscoveryRequestBuilder.request()
-                .selectors(DiscoverySelectors.selectClass(Class.forName(klassName)))
-                .build();
-        Launcher launcher = LauncherFactory.create();
-        launcher.execute(request);
+        try {
+            LauncherDiscoveryRequest request = LauncherDiscoveryRequestBuilder.request()
+                    .selectors(DiscoverySelectors.selectClass(Class.forName(klassName)))
+                    .build();
+            Launcher launcher = LauncherFactory.create();
+            launcher.execute(request);
+        } catch (Exception e) {
+            System.out.printf("Test: %s failed to load: %s%n", klassName, e.getMessage());
+        }
     }
 
     static class TestSuiteCollection {
