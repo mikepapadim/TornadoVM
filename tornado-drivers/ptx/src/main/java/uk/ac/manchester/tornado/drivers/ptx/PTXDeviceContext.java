@@ -290,8 +290,9 @@ public class PTXDeviceContext implements TornadoDeviceContext {
 
         PTXStream stream = getStream(executionPlanId);
         // Pass module wrapper and function name directly to stream
+        // For NVRTC modules, skip the kernel context parameter
         int kernelLaunchEvent = stream.enqueueKernelLaunch(executionPlanId, module.moduleWrapper, module.kernelFunctionName,
-                taskMeta, writePTXKernelContextOnDevice(executionPlanId, (PTXKernelStackFrame) kernelArgs, taskMeta), gridDimension, blockDimension);
+                taskMeta, writePTXKernelContextOnDevice(executionPlanId, (PTXKernelStackFrame) kernelArgs, taskMeta, false), gridDimension, blockDimension);
         updateProfiler(executionPlanId, kernelLaunchEvent, taskMeta);
         return kernelLaunchEvent;
     }
@@ -330,21 +331,31 @@ public class PTXDeviceContext implements TornadoDeviceContext {
     }
 
     private byte[] writePTXKernelContextOnDevice(long executionPlanId, PTXKernelStackFrame ptxKernelArgs, TaskDataContext meta) {
-        int capacity = Long.BYTES + ptxKernelArgs.getCallArguments().size() * Long.BYTES;
+        return writePTXKernelContextOnDevice(executionPlanId, ptxKernelArgs, meta, true);
+    }
+
+    private byte[] writePTXKernelContextOnDevice(long executionPlanId, PTXKernelStackFrame ptxKernelArgs, TaskDataContext meta, boolean includeKernelContext) {
+        int capacity = (includeKernelContext ? Long.BYTES : 0) + ptxKernelArgs.getCallArguments().size() * Long.BYTES;
         ByteBuffer args = ByteBuffer.allocate(capacity);
         args.order(getByteOrder());
 
-        // Kernel context pointer
-        int kernelContextWriteEventId = ptxKernelArgs.enqueueWrite(executionPlanId);
-        updateProfilerKernelContextWrite(executionPlanId, kernelContextWriteEventId, meta, ptxKernelArgs);
-        long address = ptxKernelArgs.toAbsoluteAddress();
-        args.putLong(address);
+        // Kernel context pointer (only for regular PTX mode, not for CUDA/NVRTC)
+        long address = 0;
+        if (includeKernelContext) {
+            int kernelContextWriteEventId = ptxKernelArgs.enqueueWrite(executionPlanId);
+            updateProfilerKernelContextWrite(executionPlanId, kernelContextWriteEventId, meta, ptxKernelArgs);
+            address = ptxKernelArgs.toAbsoluteAddress();
+            args.putLong(address);
+        }
 
         // Parameters
         for (int argIndex = 0; argIndex < ptxKernelArgs.getCallArguments().size(); argIndex++) {
             KernelStackFrame.CallArgument arg = ptxKernelArgs.getCallArguments().get(argIndex);
             if (arg.getValue() instanceof KernelStackFrame.KernelContextArgument) {
-                args.putLong(address);
+                if (includeKernelContext) {
+                    args.putLong(address);
+                }
+                // Skip kernel context for CUDA/NVRTC mode
                 continue;
             } else if (isBoxedPrimitive(arg.getValue()) || arg.getValue().getClass().isPrimitive()) {
                 if (arg.getValue() instanceof HalfFloat) {

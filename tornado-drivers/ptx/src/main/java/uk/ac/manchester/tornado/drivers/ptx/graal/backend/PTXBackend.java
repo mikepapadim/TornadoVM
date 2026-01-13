@@ -56,6 +56,7 @@ import jdk.vm.ci.code.RegisterConfig;
 import jdk.vm.ci.hotspot.HotSpotCallingConventionType;
 import jdk.vm.ci.meta.AllocatableValue;
 import jdk.vm.ci.meta.JavaKind;
+import jdk.vm.ci.meta.JavaType;
 import jdk.vm.ci.meta.Local;
 import jdk.vm.ci.meta.ResolvedJavaMethod;
 import jdk.vm.ci.meta.ResolvedJavaType;
@@ -250,6 +251,9 @@ public class PTXBackend extends XPUBackend<PTXProviders> implements FrameMap.Ref
 
     private void emitEpilogue(PTXAssembler asm) {
         asm.emitLine("}");
+        if (codeGenMode == CodeGenMode.CUDA) {
+            asm.emitLine("}");
+        }
     }
 
     private void emitPrologue(PTXCompilationResultBuilder crb, PTXAssembler asm, PTXLIRGenerationResult lirGenRes, ResolvedJavaMethod method) {
@@ -279,6 +283,7 @@ public class PTXBackend extends XPUBackend<PTXProviders> implements FrameMap.Ref
         // Emit CUDA C++ kernel header
         final CallingConvention incomingArguments = CodeUtil.getCallingConvention(codeCache, HotSpotCallingConventionType.JavaCallee, method);
         if (crb.isKernel()) {
+            asm.emitLine("extern \"C\" {");
             asm.emit("__global__ void %s(", crb.compilationResult.getName());
             emitMethodParametersCUDA(asm, method, incomingArguments);
             asm.emit(") {");
@@ -320,7 +325,8 @@ public class PTXBackend extends XPUBackend<PTXProviders> implements FrameMap.Ref
                 asm.emit("%s %s", ptxKindToCType(kind), locals[i].getName());
             } else {
                 // Arrays/objects: emit as pointer to element type
-                asm.emit("%s* %s", ptxKindToCType(kind), locals[i].getName());
+                String elementType = getArrayElementCType(locals[i].getType());
+                asm.emit("%s* %s", elementType, locals[i].getName());
             }
         }
     }
@@ -345,6 +351,41 @@ public class PTXBackend extends XPUBackend<PTXProviders> implements FrameMap.Ref
             case PRED -> "bool";
             default -> "void";
         };
+    }
+
+    /**
+     * Extract element type from Java array type and convert to C type.
+     * For example: "int[]" -> "int", "IntArray" -> "int"
+     */
+    private String getArrayElementCType(JavaType javaType) {
+        String typeName = javaType.toJavaName();
+
+        // Handle standard Java arrays like "int[]"
+        if (typeName.endsWith("[]")) {
+            String elementType = typeName.substring(0, typeName.length() - 2);
+            return switch (elementType) {
+                case "byte" -> "char";
+                case "short" -> "short";
+                case "int" -> "int";
+                case "long" -> "long long";
+                case "float" -> "float";
+                case "double" -> "double";
+                case "boolean" -> "bool";
+                default -> "void";
+            };
+        }
+
+        // Handle TornadoVM array types like "IntArray", "FloatArray"
+        if (typeName.contains("Array")) {
+            if (typeName.contains("Int")) return "int";
+            if (typeName.contains("Float")) return "float";
+            if (typeName.contains("Double")) return "double";
+            if (typeName.contains("Long")) return "long long";
+            if (typeName.contains("Short")) return "short";
+            if (typeName.contains("Byte") || typeName.contains("Char")) return "char";
+        }
+
+        return "void";
     }
 
     private void emitMethodParameters(PTXAssembler asm, ResolvedJavaMethod method, CallingConvention incomingArguments, boolean isKernel) {

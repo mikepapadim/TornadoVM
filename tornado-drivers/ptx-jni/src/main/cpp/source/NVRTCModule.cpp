@@ -31,6 +31,7 @@
 #include <vector>
 #include <string>
 #include <cstdio>
+#include <fstream>
 
 #ifdef __cplusplus
 extern "C" {
@@ -127,6 +128,23 @@ JNIEXPORT jbyteArray JNICALL Java_uk_ac_manchester_tornado_drivers_ptx_NVRTCModu
     std::vector<char> ptx(ptx_size);
     nvrtcGetPTX(prog, ptx.data());
 
+    // Debug: print entry point name from PTX and save PTX to file
+    std::string ptx_str(ptx.data());
+    size_t entry_pos = ptx_str.find(".entry");
+    if (entry_pos != std::string::npos) {
+        size_t end_pos = ptx_str.find('\n', entry_pos);
+        std::string entry_line = ptx_str.substr(entry_pos, end_pos - entry_pos);
+        std::cout << "[NVRTC] PTX entry point: " << entry_line << std::endl;
+    }
+
+    // Save PTX to file for debugging
+    std::ofstream ptx_file("/tmp/nvrtc_generated.ptx");
+    if (ptx_file.is_open()) {
+        ptx_file << ptx_str;
+        ptx_file.close();
+        std::cout << "[NVRTC] PTX saved to /tmp/nvrtc_generated.ptx" << std::endl;
+    }
+
     // Convert to Java byte array
     jbyteArray result_array = env->NewByteArray(ptx_size);
     env->SetByteArrayRegion(result_array, 0, ptx_size,
@@ -177,6 +195,7 @@ JNIEXPORT jbyteArray JNICALL Java_uk_ac_manchester_tornado_drivers_ptx_NVRTCModu
         return env->NewByteArray(0);
     }
 
+    std::cout << "[NVRTC] Module loaded successfully, address=" << module << std::endl;
     return from_module(env, &module);
 }
 
@@ -222,6 +241,7 @@ JNIEXPORT jint JNICALL Java_uk_ac_manchester_tornado_drivers_ptx_NVRTCModule_cuO
         return -1;
     }
 
+    std::cout << "[NVRTC] Occupancy: minGridSize=" << minGridSize << ", blockSize=" << blockSize << std::endl;
     return static_cast<jint>(blockSize);
 }
 

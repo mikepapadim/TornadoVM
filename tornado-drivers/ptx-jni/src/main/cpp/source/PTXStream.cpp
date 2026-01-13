@@ -405,6 +405,7 @@ JNIEXPORT jobjectArray JNICALL Java_uk_ac_manchester_tornado_drivers_ptx_PTXStre
     char arg_buffer[arg_buffer_size];
 #endif
     env->GetByteArrayRegion(args, 0, arg_buffer_size, reinterpret_cast<jbyte *>(arg_buffer));
+    std::cout << "[PTX-JNI] Argument buffer size: " << arg_buffer_size << " bytes" << std::endl;
 
     void *arg_config[] = {
         CU_LAUNCH_PARAM_BUFFER_POINTER, arg_buffer,
@@ -417,6 +418,16 @@ JNIEXPORT jobjectArray JNICALL Java_uk_ac_manchester_tornado_drivers_ptx_PTXStre
 
     record_events_create(&beforeEvent, &afterEvent);
     record_event(&beforeEvent, &stream);
+
+    // Check for any pending CUDA errors before launch
+    CUresult preResult = cuCtxSynchronize();
+    if (preResult != CUDA_SUCCESS) {
+        std::cerr << "[PTX-JNI] Pre-launch CUDA error: " << preResult << std::endl;
+    }
+
+    std::cout << "[PTX-JNI] Launching kernel: grid=(" << gridDimX << "," << gridDimY << "," << gridDimZ
+              << ") block=(" << blockDimX << "," << blockDimY << "," << blockDimZ
+              << ") sharedMem=" << sharedMemBytes << " bytes" << std::endl;
     result = cuLaunchKernel(
             kernel,
             (unsigned int) gridDimX,  (unsigned int) gridDimY,  (unsigned int) gridDimZ,
