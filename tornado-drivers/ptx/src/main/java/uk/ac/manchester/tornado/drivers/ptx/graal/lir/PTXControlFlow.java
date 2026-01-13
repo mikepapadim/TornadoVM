@@ -137,4 +137,236 @@ public class PTXControlFlow {
         }
 
     }
+
+    // ============================================================
+    // Structured Control Flow Operations (CUDA Mode)
+    // Based on OpenCL backend patterns for generating C-style code
+    // ============================================================
+
+    /**
+     * Emits the start of a for loop: "for ("
+     * After this, loop initialization statements are emitted,
+     * followed by LoopConditionOp and loop increment, then LoopPostOp.
+     */
+    public static class LoopInitOp extends AbstractInstruction {
+
+        public static final LIRInstructionClass<LoopInitOp> TYPE = LIRInstructionClass.create(LoopInitOp.class);
+
+        public LoopInitOp() {
+            super(TYPE);
+        }
+
+        @Override
+        public void emitCode(PTXCompilationResultBuilder crb, PTXAssembler asm) {
+            if (asm.getCodeGenMode() == CodeGenMode.CUDA) {
+                asm.emitCudaIndent();
+                asm.emit("for (");
+                // Disable EOL and indent temporarily so init, condition, increment are on same line
+                asm.indentOff();
+                asm.eolOff();
+            } else {
+                // PTX mode doesn't use structured loops
+            }
+        }
+    }
+
+    /**
+     * Emits the end of the for loop header: ") {"
+     * This is called after loop initialization, condition, and increment have been emitted.
+     */
+    public static class LoopPostOp extends AbstractInstruction {
+
+        public static final LIRInstructionClass<LoopPostOp> TYPE = LIRInstructionClass.create(LoopPostOp.class);
+
+        public LoopPostOp() {
+            super(TYPE);
+        }
+
+        @Override
+        public void emitCode(PTXCompilationResultBuilder crb, PTXAssembler asm) {
+            if (asm.getCodeGenMode() == CodeGenMode.CUDA) {
+                asm.emit(") {");
+                asm.indentOn();
+                asm.eolOn();
+                asm.eol();
+                asm.increaseIndent();
+            } else {
+                // PTX mode doesn't use structured loops
+            }
+        }
+    }
+
+    /**
+     * Emits a loop condition.
+     * Can generate either:
+     * 1. Just the condition (for for-loop header)
+     * 2. An if-break statement inside the loop body
+     */
+    public static class LoopConditionOp extends AbstractInstruction {
+
+        public static final LIRInstructionClass<LoopConditionOp> TYPE = LIRInstructionClass.create(LoopConditionOp.class);
+        @Use
+        private final Value condition;
+        private boolean generateIfBreakStatement = true;
+
+        public LoopConditionOp(Value condition) {
+            super(TYPE);
+            this.condition = condition;
+        }
+
+        public void setGenerateIfBreakStatement(boolean value) {
+            this.generateIfBreakStatement = value;
+        }
+
+        @Override
+        public void emitCode(PTXCompilationResultBuilder crb, PTXAssembler asm) {
+            if (asm.getCodeGenMode() == CodeGenMode.CUDA) {
+                if (generateIfBreakStatement) {
+                    // Generate: if (!condition) break;
+                    asm.emitCudaIndent();
+                    asm.emit("if (!(");
+                    asm.emit(asm.toStringWithMode(condition));
+                    asm.emit(")) break;");
+                    asm.eol();
+                } else {
+                    // Just emit the condition (for for-loop header)
+                    asm.emit(asm.toStringWithMode(condition));
+                }
+            } else {
+                // PTX mode doesn't use structured loops
+            }
+        }
+    }
+
+    /**
+     * Emits an if statement: "if (condition) {"
+     */
+    public static class ConditionalBranchOp extends AbstractInstruction {
+
+        public static final LIRInstructionClass<ConditionalBranchOp> TYPE = LIRInstructionClass.create(ConditionalBranchOp.class);
+        @Use
+        private final Value condition;
+
+        public ConditionalBranchOp(Value condition) {
+            super(TYPE);
+            this.condition = condition;
+        }
+
+        @Override
+        public void emitCode(PTXCompilationResultBuilder crb, PTXAssembler asm) {
+            if (asm.getCodeGenMode() == CodeGenMode.CUDA) {
+                asm.emitCudaIndent();
+                asm.emit("if (");
+                asm.emit(asm.toStringWithMode(condition));
+                asm.emit(") {");
+                asm.eol();
+                asm.increaseIndent();
+            } else {
+                // PTX mode uses conditional branches
+            }
+        }
+    }
+
+    /**
+     * Emits an else-if statement: "} else if (condition) {"
+     */
+    public static class LinkedConditionalBranchOp extends AbstractInstruction {
+
+        public static final LIRInstructionClass<LinkedConditionalBranchOp> TYPE = LIRInstructionClass.create(LinkedConditionalBranchOp.class);
+        @Use
+        private final Value condition;
+
+        public LinkedConditionalBranchOp(Value condition) {
+            super(TYPE);
+            this.condition = condition;
+        }
+
+        @Override
+        public void emitCode(PTXCompilationResultBuilder crb, PTXAssembler asm) {
+            if (asm.getCodeGenMode() == CodeGenMode.CUDA) {
+                asm.decreaseIndent();
+                asm.emitCudaIndent();
+                asm.emit("} else if (");
+                asm.emit(asm.toStringWithMode(condition));
+                asm.emit(") {");
+                asm.eol();
+                asm.increaseIndent();
+            } else {
+                // PTX mode uses conditional branches
+            }
+        }
+    }
+
+    /**
+     * Emits an else statement: "} else {"
+     */
+    public static class ElseBranchOp extends AbstractInstruction {
+
+        public static final LIRInstructionClass<ElseBranchOp> TYPE = LIRInstructionClass.create(ElseBranchOp.class);
+
+        public ElseBranchOp() {
+            super(TYPE);
+        }
+
+        @Override
+        public void emitCode(PTXCompilationResultBuilder crb, PTXAssembler asm) {
+            if (asm.getCodeGenMode() == CodeGenMode.CUDA) {
+                asm.decreaseIndent();
+                asm.emitCudaIndent();
+                asm.emit("} else {");
+                asm.eol();
+                asm.increaseIndent();
+            } else {
+                // PTX mode uses conditional branches
+            }
+        }
+    }
+
+    /**
+     * Begins a scope: "{"
+     */
+    public static class BeginScopeOp extends AbstractInstruction {
+
+        public static final LIRInstructionClass<BeginScopeOp> TYPE = LIRInstructionClass.create(BeginScopeOp.class);
+
+        public BeginScopeOp() {
+            super(TYPE);
+        }
+
+        @Override
+        public void emitCode(PTXCompilationResultBuilder crb, PTXAssembler asm) {
+            if (asm.getCodeGenMode() == CodeGenMode.CUDA) {
+                asm.emitCudaIndent();
+                asm.emit("{");
+                asm.eol();
+                asm.increaseIndent();
+            } else {
+                // PTX mode doesn't use scopes
+            }
+        }
+    }
+
+    /**
+     * Ends a scope: "}"
+     */
+    public static class EndScopeOp extends AbstractInstruction {
+
+        public static final LIRInstructionClass<EndScopeOp> TYPE = LIRInstructionClass.create(EndScopeOp.class);
+
+        public EndScopeOp() {
+            super(TYPE);
+        }
+
+        @Override
+        public void emitCode(PTXCompilationResultBuilder crb, PTXAssembler asm) {
+            if (asm.getCodeGenMode() == CodeGenMode.CUDA) {
+                asm.decreaseIndent();
+                asm.emitCudaIndent();
+                asm.emit("}");
+                asm.eol();
+            } else {
+                // PTX mode doesn't use scopes
+            }
+        }
+    }
 }

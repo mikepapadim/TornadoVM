@@ -114,6 +114,38 @@ public class PTXAssembler extends Assembler {
         return codeGenMode;
     }
 
+    // Indent management for structured control flow
+    private int lastIndent = 0;
+    private boolean emitIndent = true;
+
+    public void increaseIndent() {
+        cudaIndentLevel++;
+    }
+
+    public void decreaseIndent() {
+        if (cudaIndentLevel > 0) {
+            cudaIndentLevel--;
+        }
+    }
+
+    public void indentOff() {
+        lastIndent = cudaIndentLevel;
+        emitIndent = false;
+    }
+
+    public void indentOn() {
+        cudaIndentLevel = lastIndent;
+        emitIndent = true;
+    }
+
+    public void eolOff() {
+        emitEOL = false;
+    }
+
+    public void eolOn() {
+        emitEOL = true;
+    }
+
     // CUDA emission helpers
     public void emitCudaIndent() {
         for (int i = 0; i < cudaIndentLevel; i++) {
