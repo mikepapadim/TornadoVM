@@ -163,6 +163,10 @@ public class PTXAssembler extends Assembler {
     }
 
     public static String formatConstant(ConstantValue cv) {
+        return formatConstant(cv, CodeGenMode.PTX);
+    }
+
+    public static String formatConstant(ConstantValue cv, CodeGenMode mode) {
         String result = "";
         JavaConstant javaConstant = cv.getJavaConstant();
         Constant constant = cv.getConstant();
@@ -181,10 +185,22 @@ public class PTXAssembler extends Assembler {
 
             if (javaConstant.getJavaKind() == JavaKind.Float) {
                 float value = javaConstant.asFloat();
-                result = String.format("0F%08X", Float.floatToRawIntBits(value));
+                if (mode == CodeGenMode.CUDA) {
+                    // C/CUDA format: 0.0f, 1.5f, etc.
+                    result = String.format("%ff", value);
+                } else {
+                    // PTX format: 0F00000000, etc.
+                    result = String.format("0F%08X", Float.floatToRawIntBits(value));
+                }
             } else if (javaConstant.getJavaKind() == JavaKind.Double) {
                 double value = javaConstant.asDouble();
-                result = String.format("0D%016X", Double.doubleToRawLongBits(value));
+                if (mode == CodeGenMode.CUDA) {
+                    // C/CUDA format: 0.0, 1.5, etc.
+                    result = String.format("%f", value);
+                } else {
+                    // PTX format: 0D0000000000000000, etc.
+                    result = String.format("0D%016X", Double.doubleToRawLongBits(value));
+                }
             } else {
                 result = constant.toValueString();
             }
@@ -198,6 +214,10 @@ public class PTXAssembler extends Assembler {
     }
 
     public static String toString(Value value) {
+        return toString(value, CodeGenMode.PTX);
+    }
+
+    public static String toString(Value value, CodeGenMode mode) {
         String result = "";
         if (value instanceof Variable) {
             result = convertValueFromGraalFormat(value);
@@ -207,13 +227,18 @@ public class PTXAssembler extends Assembler {
                 shouldNotReachHere("constant value: ", value);
             }
             ConstantValue cv = (ConstantValue) value;
-            return formatConstant(cv);
+            return formatConstant(cv, mode);
         } else if (value instanceof PTXVectorElementSelect) {
             return value.toString();
         } else {
             unimplemented("value: toString() type=%s, value=%s", value.getClass().getName(), value);
         }
         return result;
+    }
+
+    // Instance method that uses the assembler's mode
+    public String toStringWithMode(Value value) {
+        return toString(value, codeGenMode);
     }
 
     /**

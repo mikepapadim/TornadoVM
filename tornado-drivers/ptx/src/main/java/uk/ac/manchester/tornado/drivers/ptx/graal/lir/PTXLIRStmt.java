@@ -1051,7 +1051,7 @@ public class PTXLIRStmt {
             if (rhs instanceof PTXLIROp) {
                 ((PTXLIROp) rhs).emit(crb, asm, (Variable) lhs);
             } else {
-                String lhsStr = PTXAssembler.toString(lhs);
+                String lhsStr = asm.toStringWithMode(lhs);
                 String rhsStr;
 
                 if (rhs instanceof PTXArchitecture.PTXBuiltInRegister) {
@@ -1073,7 +1073,7 @@ public class PTXLIRStmt {
                         default -> builtIn.getName();
                     };
                 } else {
-                    rhsStr = PTXAssembler.toString(rhs);
+                    rhsStr = asm.toStringWithMode(rhs);
                 }
 
                 // Declare variable if needed
@@ -1216,7 +1216,7 @@ public class PTXLIRStmt {
         }
 
         private void emitCUDA(PTXCompilationResultBuilder crb, PTXAssembler asm) {
-            String destStr = PTXAssembler.toString(dest);
+            String destStr = asm.toStringWithMode(dest);
             PTXKind destType = (PTXKind) dest.getPlatformKind();
 
             // Declare variable if needed
@@ -1241,7 +1241,7 @@ public class PTXLIRStmt {
                 asm.eol();
             } else {
                 // Memory load: ld.global.s32 rsi4, [rud5] -> rsi4 = *((int*)rud5);
-                String addressStr = PTXAssembler.toString(address.getValue());
+                String addressStr = asm.toStringWithMode(address.getValue());
                 String cudaDestType = asm.getCudaType(destType);
                 asm.emit(destStr + " = *((" + cudaDestType + "*)" + addressStr + ");");
                 asm.eol();
@@ -1429,13 +1429,13 @@ public class PTXLIRStmt {
         }
 
         private void emitCUDA(PTXCompilationResultBuilder crb, PTXAssembler asm) {
-            String rhsStr = PTXAssembler.toString(rhs);
+            String rhsStr = asm.toStringWithMode(rhs);
             PTXKind rhsType = (PTXKind) rhs.getPlatformKind();
 
             asm.emitCudaIndent();
 
             // Memory store: st.global.s32 [rud7], rsi6 -> *((int*)rud7) = rsi6;
-            String addressStr = PTXAssembler.toString(address.getValue());
+            String addressStr = asm.toStringWithMode(address.getValue());
             String cudaRhsType = asm.getCudaType(rhsType);
             asm.emit("*((" + cudaRhsType + "*)" + addressStr + ") = " + rhsStr + ";");
             asm.eol();
@@ -1690,7 +1690,7 @@ public class PTXLIRStmt {
 
         private void emitCUDA(PTXCompilationResultBuilder crb, PTXAssembler asm) {
             // CUDA: Convert guarded statement to if + goto
-            String guardStr = PTXAssembler.toString(guard);
+            String guardStr = asm.toStringWithMode(guard);
             asm.emitCudaIndent();
             asm.emit("if (");
             if (isNegated) {
