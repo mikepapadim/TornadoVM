@@ -82,6 +82,14 @@ public class PTXControlFlow {
 
         @Override
         public void emitCode(PTXCompilationResultBuilder crb, PTXAssembler asm) {
+            if (asm.getCodeGenMode() == uk.ac.manchester.tornado.drivers.ptx.graal.backend.CodeGenMode.CUDA) {
+                emitCUDA(asm);
+            } else {
+                emitPTX(asm);
+            }
+        }
+
+        private void emitPTX(PTXAssembler asm) {
             asm.emitSymbol(TAB);
             asm.emit(BRANCH);
             if (!isConditional) {
@@ -95,6 +103,19 @@ public class PTXControlFlow {
                 emitBlockRef(destination, asm);
             }
             asm.delimiter();
+            asm.eol();
+        }
+
+        private void emitCUDA(PTXAssembler asm) {
+            // CUDA: Convert branch to goto
+            asm.emitCudaIndent();
+            asm.emit("goto ");
+            if (isLoopEdgeBack) {
+                asm.emit("LOOP_COND_" + destination.label().getBlockId());
+            } else {
+                asm.emit("BLOCK_" + destination.label().getBlockId());
+            }
+            asm.emit(";");
             asm.eol();
         }
     }

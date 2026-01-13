@@ -193,6 +193,14 @@ public class PTXUnary {
             return base;
         }
 
+        public String getName() {
+            return name;
+        }
+
+        public Value getValue() {
+            return value;
+        }
+
         @Override
         public String toString() {
             return String.format("%s", value);

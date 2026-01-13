@@ -546,6 +546,15 @@ public class PTXAssembler extends Assembler {
 
         public void emit(PTXCompilationResultBuilder crb, Variable dest) {
             final PTXAssembler asm = crb.getAssembler();
+
+            if (asm.getCodeGenMode() == CodeGenMode.CUDA && "ret".equals(opcode)) {
+                // CUDA: emit return statement
+                asm.emitCudaIndent();
+                asm.emit("return;");
+                return;
+            }
+
+            // PTX mode or other nullary ops
             emitOpcode(asm);
 
             if (dest != null) {
@@ -851,6 +860,14 @@ public class PTXAssembler extends Assembler {
                     asm.eol();
                     return;
                 }
+            }
+
+            // Handle mul.wide - multiply with widening result type
+            if (opcode.equals("mul.wide")) {
+                String cudaDestType = asm.getCudaType(type);
+                asm.emit(destStr + " = (" + cudaDestType + ")" + xStr + " * (" + cudaDestType + ")" + yStr + ";");
+                asm.eol();
+                return;
             }
 
             // Handle binary arithmetic operations

@@ -1216,9 +1216,36 @@ public class PTXLIRStmt {
         }
 
         private void emitCUDA(PTXCompilationResultBuilder crb, PTXAssembler asm) {
-            // TODO: Proper CUDA load emission
-            asm.emit("    // TODO: Load " + PTXAssembler.toString(dest) + " from address");
-            asm.eol();
+            String destStr = PTXAssembler.toString(dest);
+            PTXKind destType = (PTXKind) dest.getPlatformKind();
+
+            // Declare variable if needed
+            asm.emitCudaVariableDecl(destStr, destType);
+
+            asm.emitCudaIndent();
+
+            // Check if this is a parameter load or memory load
+            if (address.getBase().memorySpace == PTXMemorySpace.PARAM) {
+                // Parameter load: ld.param.u64 rud1, [a] -> rud1 = (long long)a;
+                String paramName = address.getName();
+
+                // Skip kernel_context parameter load in CUDA mode
+                if ("kernel_context".equals(paramName)) {
+                    asm.emit("// Skipping kernel_context load (not needed in CUDA)");
+                    asm.eol();
+                    return;
+                }
+
+                String cudaDestType = asm.getCudaType(destType);
+                asm.emit(destStr + " = (" + cudaDestType + ")" + paramName + ";");
+                asm.eol();
+            } else {
+                // Memory load: ld.global.s32 rsi4, [rud5] -> rsi4 = *((int*)rud5);
+                String addressStr = PTXAssembler.toString(address.getValue());
+                String cudaDestType = asm.getCudaType(destType);
+                asm.emit(destStr + " = *((" + cudaDestType + "*)" + addressStr + ");");
+                asm.eol();
+            }
         }
     }
 
@@ -1402,8 +1429,15 @@ public class PTXLIRStmt {
         }
 
         private void emitCUDA(PTXCompilationResultBuilder crb, PTXAssembler asm) {
-            // TODO: Proper CUDA store emission
-            asm.emit("    // TODO: Store " + PTXAssembler.toString(rhs) + " to address");
+            String rhsStr = PTXAssembler.toString(rhs);
+            PTXKind rhsType = (PTXKind) rhs.getPlatformKind();
+
+            asm.emitCudaIndent();
+
+            // Memory store: st.global.s32 [rud7], rsi6 -> *((int*)rud7) = rsi6;
+            String addressStr = PTXAssembler.toString(address.getValue());
+            String cudaRhsType = asm.getCudaType(rhsType);
+            asm.emit("*((" + cudaRhsType + "*)" + addressStr + ") = " + rhsStr + ";");
             asm.eol();
         }
 
@@ -1636,6 +1670,14 @@ public class PTXLIRStmt {
 
         @Override
         public void emitCode(PTXCompilationResultBuilder crb, PTXAssembler asm) {
+            if (asm.getCodeGenMode() == uk.ac.manchester.tornado.drivers.ptx.graal.backend.CodeGenMode.CUDA) {
+                emitCUDA(crb, asm);
+            } else {
+                emitPTX(crb, asm);
+            }
+        }
+
+        private void emitPTX(PTXCompilationResultBuilder crb, PTXAssembler asm) {
             asm.emitSymbol(TAB);
             asm.emitSymbol(OP_GUARD);
             if (isNegated)
@@ -1644,6 +1686,34 @@ public class PTXLIRStmt {
 
             asm.convertNextTabToSpace();
             instruction.emitCode(crb, asm);
+        }
+
+        private void emitCUDA(PTXCompilationResultBuilder crb, PTXAssembler asm) {
+            // CUDA: Convert guarded statement to if + goto
+            String guardStr = PTXAssembler.toString(guard);
+            asm.emitCudaIndent();
+            asm.emit("if (");
+            if (isNegated) {
+                asm.emit("!");
+            }
+            asm.emit(guardStr);
+            asm.emit(") ");
+
+            // Emit the instruction inline (should be a branch)
+            if (instruction instanceof uk.ac.manchester.tornado.drivers.ptx.graal.lir.PTXControlFlow.Branch) {
+                // Emit goto directly instead of calling instruction.emitCode
+                uk.ac.manchester.tornado.drivers.ptx.graal.lir.PTXControlFlow.Branch branch =
+                    (uk.ac.manchester.tornado.drivers.ptx.graal.lir.PTXControlFlow.Branch) instruction;
+                asm.emit("{ ");
+                // Access the destination through reflection or just emit the instruction
+                instruction.emitCode(crb, asm);
+                asm.emit(" }");
+            } else {
+                asm.emit("{ ");
+                instruction.emitCode(crb, asm);
+                asm.emit(" }");
+            }
+            asm.eol();
         }
     }
 

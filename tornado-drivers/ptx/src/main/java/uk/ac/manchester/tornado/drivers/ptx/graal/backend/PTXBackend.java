@@ -299,11 +299,8 @@ public class PTXBackend extends XPUBackend<PTXProviders> implements FrameMap.Ref
         boolean first = true;
 
         for (int i = 0; i < incomingArguments.getArgumentCount(); i++) {
-            // Skip the kernel context object
+            // Skip the kernel context object (CUDA doesn't need it in signature)
             if (locals[i].getType().toJavaName().equals(KernelContext.class.getName())) {
-                if (!first) asm.emit(", ");
-                asm.emit("void* %s", PTXAssemblerConstants.KERNEL_CONTEXT_ARGUMENT_NAME);
-                first = false;
                 continue;
             }
 
