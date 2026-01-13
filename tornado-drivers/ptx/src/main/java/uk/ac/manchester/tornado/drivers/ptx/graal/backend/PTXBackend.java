@@ -237,14 +237,8 @@ public class PTXBackend extends XPUBackend<PTXProviders> implements FrameMap.Ref
         PTXLIRGenerationResult lirGenRes = crb.getPTXLIRGenerationResult();
         emitPrologue(crb, asm, lirGenRes, method);
 
-        if (codeGenMode == CodeGenMode.CUDA) {
-            // Emit placeholder CUDA C++ code
-            asm.emitLine("    // TODO: CUDA statement emission");
-            asm.emitLine("    // Kernel logic goes here");
-        } else {
-            // Emit PTX assembly
-            crb.emit(lir);
-        }
+        // Emit LIR instructions (mode-aware emission in assembler)
+        crb.emit(lir);
 
         emitEpilogue(asm);
 

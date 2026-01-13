@@ -984,6 +984,14 @@ public class PTXLIRStmt {
 
         @Override
         public void emitCode(PTXCompilationResultBuilder crb, PTXAssembler asm) {
+            if (asm.getCodeGenMode() == uk.ac.manchester.tornado.drivers.ptx.graal.backend.CodeGenMode.CUDA) {
+                emitCUDA(crb, asm);
+            } else {
+                emitPTX(crb, asm);
+            }
+        }
+
+        private void emitPTX(PTXCompilationResultBuilder crb, PTXAssembler asm) {
             if (rhs instanceof PTXLIROp) {
                 ((PTXLIROp) rhs).emit(crb, asm, (Variable) lhs);
             } else if (lhsKind.isVector() && rhsKind.isVector()) {
@@ -1037,6 +1045,54 @@ public class PTXLIRStmt {
             }
             asm.delimiter();
             asm.eol();
+        }
+
+        private void emitCUDA(PTXCompilationResultBuilder crb, PTXAssembler asm) {
+            if (rhs instanceof PTXLIROp) {
+                ((PTXLIROp) rhs).emit(crb, asm, (Variable) lhs);
+            } else {
+                String lhsStr = PTXAssembler.toString(lhs);
+                String rhsStr;
+
+                if (rhs instanceof PTXArchitecture.PTXBuiltInRegister) {
+                    // Built-in register - get CUDA equivalent
+                    PTXArchitecture.PTXBuiltInRegister builtIn = (PTXArchitecture.PTXBuiltInRegister) rhs;
+                    rhsStr = switch (builtIn.getName()) {
+                        case "%tid.x" -> "threadIdx.x";
+                        case "%tid.y" -> "threadIdx.y";
+                        case "%tid.z" -> "threadIdx.z";
+                        case "%ntid.x" -> "blockDim.x";
+                        case "%ntid.y" -> "blockDim.y";
+                        case "%ntid.z" -> "blockDim.z";
+                        case "%ctaid.x" -> "blockIdx.x";
+                        case "%ctaid.y" -> "blockIdx.y";
+                        case "%ctaid.z" -> "blockIdx.z";
+                        case "%nctaid.x" -> "gridDim.x";
+                        case "%nctaid.y" -> "gridDim.y";
+                        case "%nctaid.z" -> "gridDim.z";
+                        default -> builtIn.getName();
+                    };
+                } else {
+                    rhsStr = PTXAssembler.toString(rhs);
+                }
+
+                // Declare variable if needed
+                PTXKind lhsType = (PTXKind) lhs.getPlatformKind();
+                asm.emitCudaVariableDecl(lhsStr, lhsType);
+
+                asm.emitCudaIndent();
+
+                // Check if conversion needed
+                if (lhsKind != rhsKind) {
+                    // Type casting needed
+                    String cudaType = asm.getCudaType(lhsKind);
+                    asm.emit(lhsStr + " = (" + cudaType + ")" + rhsStr + ";");
+                } else {
+                    // Simple assignment
+                    asm.emit(lhsStr + " = " + rhsStr + ";");
+                }
+                asm.eol();
+            }
         }
 
         public Value getResult() {
@@ -1135,6 +1191,14 @@ public class PTXLIRStmt {
 
         @Override
         public void emitCode(PTXCompilationResultBuilder crb, PTXAssembler asm) {
+            if (asm.getCodeGenMode() == uk.ac.manchester.tornado.drivers.ptx.graal.backend.CodeGenMode.CUDA) {
+                emitCUDA(crb, asm);
+            } else {
+                emitPTX(crb, asm);
+            }
+        }
+
+        private void emitPTX(PTXCompilationResultBuilder crb, PTXAssembler asm) {
             // ld.u64 %rd9, [%rd8];
             loadOp.emit(crb, null);
             asm.emitSymbol(DOT);
@@ -1148,6 +1212,12 @@ public class PTXLIRStmt {
             asm.space();
             address.emit(crb, asm, null);
             asm.delimiter();
+            asm.eol();
+        }
+
+        private void emitCUDA(PTXCompilationResultBuilder crb, PTXAssembler asm) {
+            // TODO: Proper CUDA load emission
+            asm.emit("    // TODO: Load " + PTXAssembler.toString(dest) + " from address");
             asm.eol();
         }
     }
@@ -1306,6 +1376,14 @@ public class PTXLIRStmt {
         }
 
         public void emitNormalCode(PTXCompilationResultBuilder crb, PTXAssembler asm) {
+            if (asm.getCodeGenMode() == uk.ac.manchester.tornado.drivers.ptx.graal.backend.CodeGenMode.CUDA) {
+                emitCUDA(crb, asm);
+            } else {
+                emitPTX(crb, asm);
+            }
+        }
+
+        private void emitPTX(PTXCompilationResultBuilder crb, PTXAssembler asm) {
             // st.global.u32 [%rd19], %r10;
             PTXNullaryOp.ST.emit(crb, null);
             asm.emitSymbol(DOT);
@@ -1320,6 +1398,12 @@ public class PTXLIRStmt {
 
             asm.emitValueOrOp(crb, rhs, null);
             asm.delimiter();
+            asm.eol();
+        }
+
+        private void emitCUDA(PTXCompilationResultBuilder crb, PTXAssembler asm) {
+            // TODO: Proper CUDA store emission
+            asm.emit("    // TODO: Store " + PTXAssembler.toString(rhs) + " to address");
             asm.eol();
         }
 

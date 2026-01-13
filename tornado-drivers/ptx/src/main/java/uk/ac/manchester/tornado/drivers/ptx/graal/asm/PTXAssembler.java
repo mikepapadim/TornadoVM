@@ -44,6 +44,7 @@ import static uk.ac.manchester.tornado.drivers.ptx.graal.asm.PTXAssemblerConstan
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -86,6 +87,10 @@ public class PTXAssembler extends Assembler {
     private boolean convertTabToSpace;
     private CodeGenMode codeGenMode;
 
+    // CUDA mode: track declared variables and indentation
+    private Set<String> declaredCudaVariables;
+    private int cudaIndentLevel;
+
     public PTXAssembler(TargetDescription target, PTXLIRGenerationResult lirGenRes) {
         this(target, lirGenRes, CodeGenMode.PTX);
     }
@@ -98,6 +103,8 @@ public class PTXAssembler extends Assembler {
         operandStack = new ArrayList<>(10);
         this.lirGenRes = lirGenRes;
         this.codeGenMode = mode;
+        this.declaredCudaVariables = new HashSet<>();
+        this.cudaIndentLevel = 1; // Start at 1 for inside __global__ function
         localIndexes = new ConcurrentHashMap<>();
         variableMap = new ConcurrentHashMap<>();
         arraylocalIndexes = new ConcurrentHashMap<>();
@@ -105,6 +112,54 @@ public class PTXAssembler extends Assembler {
 
     public CodeGenMode getCodeGenMode() {
         return codeGenMode;
+    }
+
+    // CUDA emission helpers
+    public void emitCudaIndent() {
+        for (int i = 0; i < cudaIndentLevel; i++) {
+            emit("    ");
+        }
+    }
+
+    public String getCudaType(PTXKind kind) {
+        return switch (kind) {
+            case S8, U8 -> "char";
+            case S16, U16 -> "short";
+            case S32, U32 -> "int";
+            case S64, U64 -> "long long";
+            case F32 -> "float";
+            case F64 -> "double";
+            case B8 -> "bool";
+            case PRED -> "bool";
+            default -> "int"; // fallback
+        };
+    }
+
+    public void emitCudaVariableDecl(String varName, PTXKind kind) {
+        if (!declaredCudaVariables.contains(varName)) {
+            emitCudaIndent();
+            emit(getCudaType(kind));
+            emit(" ");
+            emit(varName);
+            emitLine(";");
+            declaredCudaVariables.add(varName);
+        }
+    }
+
+    public String getCudaBinaryOp(PTXBinaryOp op) {
+        return switch (op.opcode) {
+            case "add" -> "+";
+            case "sub" -> "-";
+            case "mul" -> "*";
+            case "div" -> "/";
+            case "rem" -> "%";
+            case "and" -> "&";
+            case "or" -> "|";
+            case "xor" -> "^";
+            case "shl" -> "<<";
+            case "shr" -> ">>";
+            default -> null; // needs special handling
+        };
     }
 
     public static String formatConstant(ConstantValue cv) {
@@ -238,7 +293,27 @@ public class PTXAssembler extends Assembler {
     }
 
     public void emitBuiltIn(PTXArchitecture.PTXBuiltInRegister ptxBuiltInRegister) {
-        emit(ptxBuiltInRegister.getName());
+        if (codeGenMode == CodeGenMode.CUDA) {
+            // Translate PTX built-in register to CUDA equivalent
+            String cudaBuiltIn = switch (ptxBuiltInRegister.getName()) {
+                case "%tid.x" -> "threadIdx.x";
+                case "%tid.y" -> "threadIdx.y";
+                case "%tid.z" -> "threadIdx.z";
+                case "%ntid.x" -> "blockDim.x";
+                case "%ntid.y" -> "blockDim.y";
+                case "%ntid.z" -> "blockDim.z";
+                case "%ctaid.x" -> "blockIdx.x";
+                case "%ctaid.y" -> "blockIdx.y";
+                case "%ctaid.z" -> "blockIdx.z";
+                case "%nctaid.x" -> "gridDim.x";
+                case "%nctaid.y" -> "gridDim.y";
+                case "%nctaid.z" -> "gridDim.z";
+                default -> ptxBuiltInRegister.getName(); // fallback
+            };
+            emit(cudaBuiltIn);
+        } else {
+            emit(ptxBuiltInRegister.getName());
+        }
     }
 
     public void emitValueOrOp(PTXCompilationResultBuilder crb, Value value, Variable dest) {
@@ -535,6 +610,15 @@ public class PTXAssembler extends Assembler {
 
         public void emit(PTXCompilationResultBuilder crb, Value value, Variable dest) {
             final PTXAssembler asm = crb.getAssembler();
+
+            if (asm.getCodeGenMode() == CodeGenMode.CUDA) {
+                emitCUDA(asm, value, dest);
+            } else {
+                emitPTX(asm, crb, value, dest);
+            }
+        }
+
+        private void emitPTX(PTXAssembler asm, PTXCompilationResultBuilder crb, Value value, Variable dest) {
             emitOpcode(asm);
             PTXKind destType = (PTXKind) dest.getPlatformKind();
             if (roundingMode != null) {
@@ -559,6 +643,39 @@ public class PTXAssembler extends Assembler {
             }
             asm.emitSymbol(TAB);
             asm.emitValuesOrOp(crb, new Value[] { dest, value }, dest);
+        }
+
+        private void emitCUDA(PTXAssembler asm, Value value, Variable dest) {
+            String destStr = PTXAssembler.toString(dest);
+            String valueStr = PTXAssembler.toString(value);
+            PTXKind destType = (PTXKind) dest.getPlatformKind();
+
+            // Declare variable if needed
+            asm.emitCudaVariableDecl(destStr, destType);
+
+            asm.emitCudaIndent();
+
+            if (MOVE.equals(opcode)) {
+                // Simple assignment for move
+                asm.emit(destStr + " = " + valueStr + ";");
+                asm.eol();
+            } else if (CONVERT.equals(opcode)) {
+                // Type casting for convert
+                PTXKind srcType = (PTXKind) value.getPlatformKind();
+                String cudaDestType = asm.getCudaType(destType);
+                asm.emit(destStr + " = (" + cudaDestType + ")" + valueStr + ";");
+                asm.eol();
+            } else if ("neg".equals(opcode)) {
+                asm.emit(destStr + " = -" + valueStr + ";");
+                asm.eol();
+            } else if ("not".equals(opcode)) {
+                asm.emit(destStr + " = ~" + valueStr + ";");
+                asm.eol();
+            } else {
+                // Unhandled unary operation
+                asm.emit("// TODO: CUDA unary op " + opcode + ": " + destStr + " = f(" + valueStr + ")");
+                asm.eol();
+            }
         }
     }
 
@@ -671,6 +788,15 @@ public class PTXAssembler extends Assembler {
 
         public void emit(PTXCompilationResultBuilder crb, Value x, Value y, Variable dest) {
             final PTXAssembler asm = crb.getAssembler();
+
+            if (asm.getCodeGenMode() == CodeGenMode.CUDA) {
+                emitCUDA(asm, x, y, dest);
+            } else {
+                emitPTX(asm, x, y, dest);
+            }
+        }
+
+        private void emitPTX(PTXAssembler asm, Value x, Value y, Variable dest) {
             emitOpcode(asm);
             PTXKind type = (PTXKind) dest.getPlatformKind();
 
@@ -695,7 +821,54 @@ public class PTXAssembler extends Assembler {
                 asm.emit("." + type);
             }
             asm.emitSymbol(TAB);
-            asm.emitValuesOrOp(crb, new Value[] { dest, x, y }, dest);
+            asm.emitValuesOrOp(null, new Value[] { dest, x, y }, dest);
+        }
+
+        private void emitCUDA(PTXAssembler asm, Value x, Value y, Variable dest) {
+            PTXKind type = (PTXKind) dest.getPlatformKind();
+            String destStr = PTXAssembler.toString(dest);
+            String xStr = PTXAssembler.toString(x);
+            String yStr = PTXAssembler.toString(y);
+
+            // Declare variable if needed
+            asm.emitCudaVariableDecl(destStr, type);
+
+            asm.emitCudaIndent();
+
+            // Handle comparison operations (setp)
+            if (opcode.startsWith("setp.")) {
+                String cmpOp = switch (opcode) {
+                    case "setp.lt", "setp.ltu" -> "<";
+                    case "setp.le", "setp.leu" -> "<=";
+                    case "setp.gt", "setp.gtu" -> ">";
+                    case "setp.ge", "setp.geu" -> ">=";
+                    case "setp.eq", "setp.equ" -> "==";
+                    case "setp.ne", "setp.neu" -> "!=";
+                    default -> null;
+                };
+                if (cmpOp != null) {
+                    asm.emit(destStr + " = " + xStr + " " + cmpOp + " " + yStr + ";");
+                    asm.eol();
+                    return;
+                }
+            }
+
+            // Handle binary arithmetic operations
+            String cudaOp = asm.getCudaBinaryOp(this);
+            if (cudaOp != null) {
+                asm.emit(destStr + " = " + xStr + " " + cudaOp + " " + yStr + ";");
+                asm.eol();
+            } else {
+                // Special operations that need function calls
+                if (opcode.equals("div.approx") || opcode.equals("div.full") || opcode.equals("div")) {
+                    asm.emit(destStr + " = " + xStr + " / " + yStr + ";");
+                    asm.eol();
+                } else {
+                    // Fallback: emit as comment and placeholder
+                    asm.emit("// TODO: CUDA op " + opcode + ": " + destStr + " = f(" + xStr + ", " + yStr + ")");
+                    asm.eol();
+                }
+            }
         }
     }
 
@@ -801,6 +974,15 @@ public class PTXAssembler extends Assembler {
 
         public void emit(PTXCompilationResultBuilder crb, Value x, Value y, Value z, Variable dest) {
             final PTXAssembler asm = crb.getAssembler();
+
+            if (asm.getCodeGenMode() == CodeGenMode.CUDA) {
+                emitCUDA(asm, x, y, z, dest);
+            } else {
+                emitPTX(asm, x, y, z, dest);
+            }
+        }
+
+        private void emitPTX(PTXAssembler asm, Value x, Value y, Value z, Variable dest) {
             emitOpcode(asm);
             asm.emitSymbol(DOT);
             if (((PTXKind) dest.getPlatformKind()).isFloating() && needsRounding) {
@@ -810,6 +992,36 @@ public class PTXAssembler extends Assembler {
             asm.emit(dest.getPlatformKind().toString());
             asm.emitSymbol(TAB);
             asm.emitValues(new Value[] { dest, x, y, z });
+        }
+
+        private void emitCUDA(PTXAssembler asm, Value x, Value y, Value z, Variable dest) {
+            String destStr = PTXAssembler.toString(dest);
+            String xStr = PTXAssembler.toString(x);
+            String yStr = PTXAssembler.toString(y);
+            String zStr = PTXAssembler.toString(z);
+            PTXKind type = (PTXKind) dest.getPlatformKind();
+
+            // Declare variable if needed
+            asm.emitCudaVariableDecl(destStr, type);
+
+            asm.emitCudaIndent();
+
+            if (opcode.startsWith("mad")) {
+                // MAD = multiply-add: dest = x * y + z
+                asm.emit(destStr + " = " + xStr + " * " + yStr + " + " + zStr + ";");
+                asm.eol();
+            } else if (opcode.equals("fma")) {
+                // FMA = fused multiply-add
+                asm.emit(destStr + " = fma(" + xStr + ", " + yStr + ", " + zStr + ");");
+                asm.eol();
+            } else if (opcode.equals("selp")) {
+                // SELP = select: dest = z ? x : y
+                asm.emit(destStr + " = " + zStr + " ? " + xStr + " : " + yStr + ";");
+                asm.eol();
+            } else {
+                asm.emit("// TODO: CUDA ternary op " + opcode);
+                asm.eol();
+            }
         }
     }
 
