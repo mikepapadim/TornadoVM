@@ -79,7 +79,7 @@ public class VectorAddInt {
             if (wrongResult) {
                 System.out.println("Result is wrong");
             } else {
-                System.out.println("Result is correct. Total time: " + executionResult.getProfilerResult().getTotalTime() + " (ns)");
+//                System.out.println("Result is correct. Total time: " + executionResult.getProfilerResult().getTotalTime() + " (ns)");
             }
             profileLog = executionResult.getProfilerResult().getProfileLog();
         }

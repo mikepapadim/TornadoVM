@@ -173,6 +173,11 @@ public class PTXStream {
     }
 
     public int enqueueKernelLaunch(long executionPlanId, PTXModule module, TaskDataContext taskMeta, byte[] kernelParams, int[] gridDim, int[] blockDim) {
+        return enqueueKernelLaunch(executionPlanId, module.moduleWrapper, module.kernelFunctionName, taskMeta, kernelParams, gridDim, blockDim);
+    }
+
+    // Overload that takes module wrapper and function name directly (for NVRTCModule compatibility)
+    public int enqueueKernelLaunch(long executionPlanId, byte[] moduleWrapper, String kernelFunctionName, TaskDataContext taskMeta, byte[] kernelParams, int[] gridDim, int[] blockDim) {
         assert Arrays.stream(gridDim).filter(i -> i <= 0).count() == 0;
         assert Arrays.stream(blockDim).filter(i -> i <= 0).count() == 0;
 
@@ -184,7 +189,7 @@ public class PTXStream {
             taskMeta.printThreadDims();
         }
 
-        return registerEvent(cuLaunchKernel(module.moduleWrapper, module.kernelFunctionName, gridDim[0], gridDim[1], gridDim[2], blockDim[0], blockDim[1], blockDim[2], DYNAMIC_SHARED_MEMORY_BYTES,
+        return registerEvent(cuLaunchKernel(moduleWrapper, kernelFunctionName, gridDim[0], gridDim[1], gridDim[2], blockDim[0], blockDim[1], blockDim[2], DYNAMIC_SHARED_MEMORY_BYTES,
                 streamPool, kernelParams), EventDescriptor.DESC_PARALLEL_KERNEL);
     }
 

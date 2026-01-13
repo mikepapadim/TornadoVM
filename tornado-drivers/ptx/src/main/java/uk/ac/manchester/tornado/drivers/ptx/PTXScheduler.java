@@ -56,15 +56,24 @@ public class PTXScheduler {
     }
 
     public int[] calculateBlockDimension(PTXModule module, TaskDataContext taskMeta) {
+        return calculateBlockDimension(module.getPotentialBlockSizeMaxOccupancy(), module.javaName, taskMeta);
+    }
+
+    // Overload for NVRTCModule compatibility
+    public int[] calculateBlockDimension(int potentialBlockSize, TaskDataContext taskMeta) {
+        return calculateBlockDimension(potentialBlockSize, "", taskMeta);
+    }
+
+    private int[] calculateBlockDimension(int potentialBlockSize, String javaName, TaskDataContext taskMeta) {
         if (taskMeta.isLocalWorkDefined()) {
             return Arrays.stream(taskMeta.getLocalWork()).mapToInt(l -> (int) l).toArray();
         }
 
         long maxThreadsPerBlock = taskMeta.getXPUDevice().getPhysicalDevice().getMaxThreadsPerBlock();
         if (taskMeta.getDims() > 1) {
-            maxThreadsPerBlock = module.getPotentialBlockSizeMaxOccupancy();
+            maxThreadsPerBlock = potentialBlockSize;
         }
-        return calculateBlockDimension(taskMeta.getGlobalWork(), maxThreadsPerBlock, taskMeta.getDims(), module.javaName);
+        return calculateBlockDimension(taskMeta.getGlobalWork(), maxThreadsPerBlock, taskMeta.getDims(), javaName);
     }
 
     public int[] calculateBlockDimension(long[] globalWork, long maxThreadBlocks, int dimension, String javaName) {
@@ -108,8 +117,13 @@ public class PTXScheduler {
     }
 
     public int[] calculateGridDimension(PTXModule module, TaskDataContext taskMeta, int[] blockDimension) {
+        return calculateGridDimension(module.javaName, taskMeta, blockDimension);
+    }
+
+    // Overload for NVRTCModule compatibility
+    public int[] calculateGridDimension(String javaName, TaskDataContext taskMeta, int[] blockDimension) {
         int[] globalWork = Arrays.stream(taskMeta.getGlobalWork()).mapToInt(l -> (int) l).toArray();
-        return calculateGridDimension(module.javaName, taskMeta.getDims(), globalWork, blockDimension);
+        return calculateGridDimension(javaName, taskMeta.getDims(), globalWork, blockDimension);
     }
 
     public int[] calculateGridDimension(String javaName, int dimension, int[] globalWork, int[] blockDimension) {
