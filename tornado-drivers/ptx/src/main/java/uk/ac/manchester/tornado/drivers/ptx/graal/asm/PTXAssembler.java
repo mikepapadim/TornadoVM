@@ -66,6 +66,7 @@ import jdk.vm.ci.meta.JavaKind;
 import jdk.vm.ci.meta.Value;
 import uk.ac.manchester.tornado.drivers.ptx.graal.PTXArchitecture;
 import uk.ac.manchester.tornado.drivers.ptx.graal.PTXVariablePrefix;
+import uk.ac.manchester.tornado.drivers.ptx.graal.backend.CodeGenMode;
 import uk.ac.manchester.tornado.drivers.ptx.graal.compiler.PTXCompilationResultBuilder;
 import uk.ac.manchester.tornado.drivers.ptx.graal.compiler.PTXLIRGenerationResult;
 import uk.ac.manchester.tornado.drivers.ptx.graal.lir.PTXKind;
@@ -83,17 +84,27 @@ public class PTXAssembler extends Assembler {
     private List<String> operandStack;
     private boolean emitEOL;
     private boolean convertTabToSpace;
+    private CodeGenMode codeGenMode;
 
     public PTXAssembler(TargetDescription target, PTXLIRGenerationResult lirGenRes) {
+        this(target, lirGenRes, CodeGenMode.PTX);
+    }
+
+    public PTXAssembler(TargetDescription target, PTXLIRGenerationResult lirGenRes, CodeGenMode mode) {
         super(target, null);
         pushToStack = false;
         emitEOL = true;
         convertTabToSpace = false;
         operandStack = new ArrayList<>(10);
         this.lirGenRes = lirGenRes;
+        this.codeGenMode = mode;
         localIndexes = new ConcurrentHashMap<>();
         variableMap = new ConcurrentHashMap<>();
         arraylocalIndexes = new ConcurrentHashMap<>();
+    }
+
+    public CodeGenMode getCodeGenMode() {
+        return codeGenMode;
     }
 
     public static String formatConstant(ConstantValue cv) {

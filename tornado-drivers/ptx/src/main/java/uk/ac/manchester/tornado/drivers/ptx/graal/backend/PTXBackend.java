@@ -100,6 +100,7 @@ public class PTXBackend extends XPUBackend<PTXProviders> implements FrameMap.Ref
     private final PTXCodeProvider codeCache;
     private final OptionValues options;
     private boolean isInitialised;
+    private final CodeGenMode codeGenMode;
 
     public PTXBackend(PTXProviders providers, PTXDeviceContext deviceContext, PTXTargetDescription target, PTXCodeProvider codeCache, OptionValues options) {
         super(providers);
@@ -110,6 +111,7 @@ public class PTXBackend extends XPUBackend<PTXProviders> implements FrameMap.Ref
         this.options = options;
         architecture = target.getArch();
         isInitialised = false;
+        codeGenMode = CodeGenMode.fromSystemProperty();
     }
 
     @Override
@@ -175,6 +177,10 @@ public class PTXBackend extends XPUBackend<PTXProviders> implements FrameMap.Ref
         return deviceContext;
     }
 
+    public CodeGenMode getCodeGenMode() {
+        return codeGenMode;
+    }
+
     @Override
     public FrameMapBuilder newFrameMapBuilder(RegisterConfig registerConfig) {
         RegisterConfig nonNullRegisterConfig = (registerConfig == null) ? getCodeCache().getRegisterConfig() : registerConfig;
@@ -215,7 +221,7 @@ public class PTXBackend extends XPUBackend<PTXProviders> implements FrameMap.Ref
     }
 
     private PTXAssembler createAssembler(PTXLIRGenerationResult result) {
-        return new PTXAssembler(target, result);
+        return new PTXAssembler(target, result, codeGenMode);
     }
 
     @Override
@@ -230,7 +236,16 @@ public class PTXBackend extends XPUBackend<PTXProviders> implements FrameMap.Ref
         final PTXAssembler asm = crb.getAssembler();
         PTXLIRGenerationResult lirGenRes = crb.getPTXLIRGenerationResult();
         emitPrologue(crb, asm, lirGenRes, method);
-        crb.emit(lir);
+
+        if (codeGenMode == CodeGenMode.CUDA) {
+            // Emit placeholder CUDA C++ code
+            asm.emitLine("    // TODO: CUDA statement emission");
+            asm.emitLine("    // Kernel logic goes here");
+        } else {
+            // Emit PTX assembly
+            crb.emit(lir);
+        }
+
         emitEpilogue(asm);
 
         profiler.stop(ProfilerType.TASK_CODE_GENERATION_TIME, taskMetaData.getId());
@@ -244,6 +259,14 @@ public class PTXBackend extends XPUBackend<PTXProviders> implements FrameMap.Ref
     }
 
     private void emitPrologue(PTXCompilationResultBuilder crb, PTXAssembler asm, PTXLIRGenerationResult lirGenRes, ResolvedJavaMethod method) {
+        if (codeGenMode == CodeGenMode.CUDA) {
+            emitPrologueCUDA(crb, asm, lirGenRes, method);
+        } else {
+            emitProloguePTX(crb, asm, lirGenRes, method);
+        }
+    }
+
+    private void emitProloguePTX(PTXCompilationResultBuilder crb, PTXAssembler asm, PTXLIRGenerationResult lirGenRes, ResolvedJavaMethod method) {
         emitPrintfPrototype(crb);
         final CallingConvention incomingArguments = CodeUtil.getCallingConvention(codeCache, HotSpotCallingConventionType.JavaCallee, method);
         if (crb.isKernel()) {
@@ -256,6 +279,81 @@ public class PTXBackend extends XPUBackend<PTXProviders> implements FrameMap.Ref
             emitFunctionHeader(asm, method, lirGenRes);
             emitVariableDefs(asm, lirGenRes);
         }
+    }
+
+    private void emitPrologueCUDA(PTXCompilationResultBuilder crb, PTXAssembler asm, PTXLIRGenerationResult lirGenRes, ResolvedJavaMethod method) {
+        // Emit CUDA C++ kernel header
+        final CallingConvention incomingArguments = CodeUtil.getCallingConvention(codeCache, HotSpotCallingConventionType.JavaCallee, method);
+        if (crb.isKernel()) {
+            asm.emit("__global__ void %s(", crb.compilationResult.getName());
+            emitMethodParametersCUDA(asm, method, incomingArguments);
+            asm.emit(") {");
+            asm.eol();
+            // Emit thread index initialization
+            asm.emitLine("    int tid = blockIdx.x * blockDim.x + threadIdx.x;");
+            asm.emitLine("    int blockSize = blockDim.x;");
+            asm.emitLine("    int totalSize = gridDim.x * blockDim.x;");
+            // Skip variable declarations in CUDA mode (C++ compiler handles this)
+        } else {
+            // Device functions in CUDA
+            emitFunctionHeaderCUDA(asm, method, lirGenRes);
+        }
+    }
+
+    private void emitMethodParametersCUDA(PTXAssembler asm, ResolvedJavaMethod method, CallingConvention incomingArguments) {
+        final Local[] locals = method.getLocalVariableTable().getLocalsAt(0);
+        boolean first = true;
+
+        for (int i = 0; i < incomingArguments.getArgumentCount(); i++) {
+            // Skip the kernel context object
+            if (locals[i].getType().toJavaName().equals(KernelContext.class.getName())) {
+                if (!first) asm.emit(", ");
+                asm.emit("void* %s", PTXAssemblerConstants.KERNEL_CONTEXT_ARGUMENT_NAME);
+                first = false;
+                continue;
+            }
+
+            // Skip atomic integers
+            if (locals[i].getType().toJavaName().equals(AtomicInteger.class.getName())) {
+                continue;
+            }
+
+            if (!first) asm.emit(", ");
+            first = false;
+
+            final AllocatableValue param = incomingArguments.getArgument(i);
+            PTXKind kind = (PTXKind) param.getPlatformKind();
+
+            if (locals[i].getType().getJavaKind().isPrimitive() || isHalfFloat(locals[i].getType())) {
+                // Primitives: emit as C++ type with pointer
+                asm.emit("%s %s", ptxKindToCType(kind), locals[i].getName());
+            } else {
+                // Arrays/objects: emit as pointer to element type
+                asm.emit("%s* %s", ptxKindToCType(kind), locals[i].getName());
+            }
+        }
+    }
+
+    private void emitFunctionHeaderCUDA(PTXAssembler asm, ResolvedJavaMethod method, PTXLIRGenerationResult lirGenRes) {
+        // For now, device functions in CUDA mode are not implemented
+        // Fall back to PTX-style function header
+        emitFunctionHeader(asm, method, lirGenRes);
+    }
+
+    /**
+     * Convert PTXKind to C/C++ type string.
+     */
+    private String ptxKindToCType(PTXKind kind) {
+        return switch (kind) {
+            case S8, U8 -> "char";
+            case S16, U16 -> "short";
+            case S32, U32 -> "int";
+            case S64, U64 -> "long long";
+            case F32 -> "float";
+            case F64 -> "double";
+            case PRED -> "bool";
+            default -> "void";
+        };
     }
 
     private void emitMethodParameters(PTXAssembler asm, ResolvedJavaMethod method, CallingConvention incomingArguments, boolean isKernel) {

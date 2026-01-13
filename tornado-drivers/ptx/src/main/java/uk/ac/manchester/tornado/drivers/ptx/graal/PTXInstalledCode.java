@@ -27,16 +27,24 @@ import jdk.vm.ci.code.InstalledCode;
 import uk.ac.manchester.tornado.api.memory.XPUBuffer;
 import uk.ac.manchester.tornado.drivers.ptx.PTXDeviceContext;
 import uk.ac.manchester.tornado.drivers.ptx.PTXModule;
+import uk.ac.manchester.tornado.drivers.ptx.NVRTCModule;
 import uk.ac.manchester.tornado.runtime.common.KernelStackFrame;
 import uk.ac.manchester.tornado.runtime.common.TornadoInstalledCode;
 import uk.ac.manchester.tornado.runtime.tasks.meta.TaskDataContext;
 
 public class PTXInstalledCode extends InstalledCode implements TornadoInstalledCode {
-    private final PTXModule module;
+    private final Object module; // Can be PTXModule or NVRTCModule
     private final PTXDeviceContext deviceContext;
     private boolean valid;
 
     public PTXInstalledCode(String name, PTXModule module, PTXDeviceContext deviceContext) {
+        super(name);
+        this.module = module;
+        this.deviceContext = deviceContext;
+        valid = true;
+    }
+
+    public PTXInstalledCode(String name, NVRTCModule module, PTXDeviceContext deviceContext) {
         super(name);
         this.module = module;
         this.deviceContext = deviceContext;
@@ -51,11 +59,23 @@ public class PTXInstalledCode extends InstalledCode implements TornadoInstalledC
 
     @Override
     public int launchWithoutDependencies(long executionPlanId, KernelStackFrame callWrapper, XPUBuffer atomicSpace, TaskDataContext meta, long batchThreads) {
-        return deviceContext.enqueueKernelLaunch(executionPlanId, module, callWrapper, meta, batchThreads);
+        // PTXDeviceContext has overloads for both PTXModule and NVRTCModule
+        if (module instanceof PTXModule) {
+            return deviceContext.enqueueKernelLaunch(executionPlanId, (PTXModule) module, callWrapper, meta, batchThreads);
+        } else if (module instanceof NVRTCModule) {
+            return deviceContext.enqueueKernelLaunch(executionPlanId, (NVRTCModule) module, callWrapper, meta, batchThreads);
+        } else {
+            throw new RuntimeException("Unknown module type: " + module.getClass());
+        }
     }
 
     public String getGeneratedSourceCode() {
-        return new String(module.getSource());
+        if (module instanceof PTXModule) {
+            return new String(((PTXModule) module).getSource());
+        } else if (module instanceof NVRTCModule) {
+            return ((NVRTCModule) module).getSource();
+        }
+        return "";
     }
 
     @Override
@@ -66,7 +86,11 @@ public class PTXInstalledCode extends InstalledCode implements TornadoInstalledC
     @Override
     public void invalidate() {
         if (valid) {
-            module.unload();
+            if (module instanceof PTXModule) {
+                ((PTXModule) module).unload();
+            } else if (module instanceof NVRTCModule) {
+                ((NVRTCModule) module).unload();
+            }
             valid = false;
         }
     }

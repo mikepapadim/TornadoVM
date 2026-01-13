@@ -56,6 +56,7 @@ add_library(tornado-ptx SHARED
 	source/PTXPlatform.cpp
 	source/PTXContext.cpp
 	source/PTXModule.cpp
+	source/NVRTCModule.cpp
 	source/PTXStream.cpp
 	source/PTXDevice.cpp
 	source/PTXEvent.cpp
@@ -84,7 +85,8 @@ if(CUDAToolkit_FOUND)
         else()
             set(EXTRA_LIBS ${EXTRA_LIBS} "${NVML_LIBRARY}")
         endif()
-        target_link_libraries(tornado-ptx ${EXTRA_LIBS} ${JNI_LIB_DIRS} ${CUDA_LIB})
+        find_library(NVRTC_LIB nvrtc PATHS ${CUDAToolkit_LIBRARY_DIR})
+        target_link_libraries(tornado-ptx ${EXTRA_LIBS} ${JNI_LIB_DIRS} ${CUDA_LIB} ${NVRTC_LIB})
     else()
         execute_process(COMMAND grep -q "jetson-nano" /proc/device-tree/model RESULT_VARIABLE device_model)
         if(${device_model} EQUAL 0)
@@ -94,7 +96,7 @@ if(CUDAToolkit_FOUND)
             find_path(NVML_INCLUDE_DIR NAMES nvml.h HINTS ${CUDA_INCLUDE_DIRS} /usr/local/cuda/targets/x86_64-linux/include /usr/local/cuda/targets/sbsa-linux/include)
             find_library(NVML_LIBRARY NAMES nvidia-ml PATHS ${CUDA_TOOLKIT_ROOT_DIR}/lib/x64 /usr/local/cuda/targets/x86_64-linux/lib/stubs/ /usr/local/cuda/targets/sbsa-linux/lib/stubs/)
         endif()
-        target_link_libraries(tornado-ptx ${JNI_LIB_DIRS} "-L/usr/local/cuda/lib64/stubs -lcuda -lnvidia-ml")
+        target_link_libraries(tornado-ptx ${JNI_LIB_DIRS} "-L/usr/local/cuda/lib64/stubs -lcuda -lnvidia-ml -lnvrtc")
     endif()
     if (NVML_INCLUDE_DIR AND NVML_LIBRARY)
         add_definitions(-DNVML_IS_SUPPORTED)

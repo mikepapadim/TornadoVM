@@ -23,11 +23,15 @@
  */
 package uk.ac.manchester.tornado.drivers.ptx;
 
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.Set;
 
 import uk.ac.manchester.tornado.api.exceptions.TornadoBailoutRuntimeException;
 import uk.ac.manchester.tornado.drivers.ptx.graal.PTXInstalledCode;
+import uk.ac.manchester.tornado.drivers.ptx.graal.backend.CodeGenMode;
 import uk.ac.manchester.tornado.runtime.common.RuntimeUtilities;
 import uk.ac.manchester.tornado.api.enums.TornadoVMBackendType;
 import uk.ac.manchester.tornado.runtime.tasks.meta.TaskDataContext;
@@ -60,6 +64,10 @@ public class PTXCodeCache {
                 RuntimeUtilities.dumpKernel(targetCode);
             }
 
+            // Detect code generation mode
+            CodeGenMode mode = CodeGenMode.fromSystemProperty();
+            boolean isCudaMode = mode == CodeGenMode.CUDA;
+
             String compilerFlags = taskMeta.getCompilerFlags(TornadoVMBackendType.PTX);
             String[] parts = compilerFlags.trim().split("\\s+");
 
@@ -69,51 +77,120 @@ public class PTXCodeCache {
                 );
             }
 
-            int[] jitOptions = new int[parts.length / 2];
-            long[] jitValues = new long[parts.length / 2];
-
-            for (int i = 0; i < parts.length; i += 2) {
-                String flagName = parts[i];
-
-                if (!SUPPORTED_PTX_JIT_FLAGS.contains(flagName)) {
-                    throw new TornadoBailoutRuntimeException(
-                            "Unsupported PTX JIT compiler flag: " + flagName +
-                                    ". Supported flags are: " + SUPPORTED_PTX_JIT_FLAGS
-                    );
-                }
-
-                CUjitOption option;
-                try {
-                    option = CUjitOption.valueOf(flagName);
-                } catch (IllegalArgumentException e) {
-                    throw new TornadoBailoutRuntimeException(
-                            "Invalid PTX JIT flag name: " + flagName, e
-                    );
-                }
-
-                jitOptions[i / 2] = option.getValue();
-
-                try {
-                    jitValues[i / 2] = Long.parseLong(parts[i + 1]);
-                } catch (NumberFormatException e) {
-                    throw new TornadoBailoutRuntimeException(
-                            "Invalid flag value (must be integer): '" + parts[i + 1] + "'", e
-                    );
-                }
-            }
-
-            PTXModule module = new PTXModule(resolvedMethodName, targetCode, name, jitOptions, jitValues);
-
-            if (module.isPTXJITSuccess()) {
-                PTXInstalledCode code = new PTXInstalledCode(name, module, deviceContext);
-                cache.put(name, code);
-                return code;
+            if (isCudaMode) {
+                // CUDA C++ mode: use NVRTC
+                return installSourceCUDA(name, targetCode, resolvedMethodName, parts);
             } else {
-                throw new TornadoBailoutRuntimeException("PTX JIT compilation failed!");
+                // PTX mode: use existing path
+                return installSourcePTX(name, targetCode, resolvedMethodName, parts);
             }
         }
 
         return cache.get(name);
+    }
+
+    private PTXInstalledCode installSourcePTX(String name, byte[] targetCode, String resolvedMethodName, String[] parts) {
+        int[] jitOptions = new int[parts.length / 2];
+        long[] jitValues = new long[parts.length / 2];
+
+        for (int i = 0; i < parts.length; i += 2) {
+            String flagName = parts[i];
+
+            if (!SUPPORTED_PTX_JIT_FLAGS.contains(flagName)) {
+                throw new TornadoBailoutRuntimeException(
+                        "Unsupported PTX JIT compiler flag: " + flagName +
+                                ". Supported flags are: " + SUPPORTED_PTX_JIT_FLAGS
+                );
+            }
+
+            CUjitOption option;
+            try {
+                option = CUjitOption.valueOf(flagName);
+            } catch (IllegalArgumentException e) {
+                throw new TornadoBailoutRuntimeException(
+                        "Invalid PTX JIT flag name: " + flagName, e
+                );
+            }
+
+            jitOptions[i / 2] = option.getValue();
+
+            try {
+                jitValues[i / 2] = Long.parseLong(parts[i + 1]);
+            } catch (NumberFormatException e) {
+                throw new TornadoBailoutRuntimeException(
+                        "Invalid flag value (must be integer): '" + parts[i + 1] + "'", e
+                );
+            }
+        }
+
+        PTXModule module = new PTXModule(resolvedMethodName, targetCode, name, jitOptions, jitValues);
+
+        if (module.isPTXJITSuccess()) {
+            PTXInstalledCode code = new PTXInstalledCode(name, module, deviceContext);
+            cache.put(name, code);
+            return code;
+        } else {
+            throw new TornadoBailoutRuntimeException("PTX JIT compilation failed!");
+        }
+    }
+
+    private PTXInstalledCode installSourceCUDA(String name, byte[] targetCode, String resolvedMethodName, String[] parts) {
+        // Convert byte[] to String (CUDA C++ source)
+        String cudaSource = new String(targetCode, StandardCharsets.UTF_8);
+
+        // Convert PTX JIT options to NVRTC options
+        List<String> nvrtcOptions = convertToNVRTCOptions(parts);
+
+        // Add default architecture if not specified
+        if (nvrtcOptions.stream().noneMatch(opt -> opt.startsWith("-arch="))) {
+            // Get compute capability from device
+            PTXDevice device = deviceContext.getDevice();
+            TargetArchitecture targetArch = device.getTargetArchitecture();
+            String arch = String.format("-arch=compute_%d%d", targetArch.getMajor(), targetArch.getMinor());
+            nvrtcOptions.add(arch);
+        }
+
+        // Compile CUDA C++ using NVRTC
+        NVRTCModule module = new NVRTCModule(resolvedMethodName, cudaSource, name,
+                                            nvrtcOptions.toArray(new String[0]));
+
+        if (module.isCompilationSuccess()) {
+            PTXInstalledCode code = new PTXInstalledCode(name, module, deviceContext);
+            cache.put(name, code);
+            return code;
+        } else {
+            String log = NVRTCModule.getLastCompilationLog();
+            System.err.println("[CUDA Compilation Error]:");
+            System.err.println(log);
+            throw new TornadoBailoutRuntimeException("NVRTC compilation failed! See log above.");
+        }
+    }
+
+    /**
+     * Convert PTX JIT options to NVRTC compiler options.
+     */
+    private List<String> convertToNVRTCOptions(String[] parts) {
+        List<String> nvrtcOptions = new ArrayList<>();
+
+        // For now, skip most options to ensure basic compilation works
+        // TODO: Add back optimization and other flags once basic compilation is working
+        for (int i = 0; i < parts.length; i += 2) {
+            String flagName = parts[i];
+            String flagValue = parts[i + 1];
+
+            // Map only essential PTX JIT options to NVRTC options
+            switch (flagName) {
+                case "CU_JIT_TARGET":
+                    // Convert SM target (e.g., 75) to arch flag
+                    nvrtcOptions.add("-arch=compute_" + flagValue);
+                    break;
+                // Skip other options for now
+                default:
+                    break;
+            }
+        }
+
+        return nvrtcOptions;
     }
 
     PTXInstalledCode getCachedCode(String name) {

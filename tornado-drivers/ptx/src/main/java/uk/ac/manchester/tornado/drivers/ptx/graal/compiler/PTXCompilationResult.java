@@ -31,6 +31,7 @@ import java.util.Set;
 import org.graalvm.compiler.code.CompilationResult;
 
 import jdk.vm.ci.meta.ResolvedJavaMethod;
+import uk.ac.manchester.tornado.drivers.ptx.graal.backend.CodeGenMode;
 import uk.ac.manchester.tornado.drivers.ptx.graal.backend.PTXBackend;
 import uk.ac.manchester.tornado.runtime.tasks.meta.TaskDataContext;
 
@@ -58,8 +59,14 @@ public class PTXCompilationResult extends CompilationResult {
     }
 
     public void addPTXHeader(PTXBackend backend) {
-        byte[] newCode = getCodeWithAttachedPTXHeader(getTargetCode(), backend);
-        setTargetCode(newCode, newCode.length);
+        if (backend.getCodeGenMode() == CodeGenMode.CUDA) {
+            // No header needed for CUDA C++ - built-in types and functions are available
+            // (NVRTC doesn't have access to system headers anyway)
+        } else {
+            // Add PTX header (default)
+            byte[] newCode = getCodeWithAttachedPTXHeader(getTargetCode(), backend);
+            setTargetCode(newCode, newCode.length);
+        }
     }
 
     public TaskDataContext metaData() {

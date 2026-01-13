@@ -264,7 +264,30 @@ public class PTXDeviceContext implements TornadoDeviceContext {
         wasReset = true;
     }
 
+    // Overload for NVRTC-compiled modules
+    public int enqueueKernelLaunch(long executionPlanId, NVRTCModule module, KernelStackFrame kernelArgs, TaskDataContext taskMeta, long batchThreads) {
+        // NVRTCModule has the same structure as PTXModule, delegate to a compatible wrapper
+        // Both have: moduleWrapper, kernelFunctionName, javaName, getPotentialBlockSizeMaxOccupancy()
+        return enqueueKernelLaunchImpl(executionPlanId, module.moduleWrapper, module.javaName, module.kernelFunctionName,
+                                      module.getPotentialBlockSizeMaxOccupancy(), kernelArgs, taskMeta, batchThreads);
+    }
+
     public int enqueueKernelLaunch(long executionPlanId, PTXModule module, KernelStackFrame kernelArgs, TaskDataContext taskMeta, long batchThreads) {
+        return enqueueKernelLaunchImpl(executionPlanId, module.moduleWrapper, module.javaName, module.kernelFunctionName,
+                                      module.getPotentialBlockSizeMaxOccupancy(), kernelArgs, taskMeta, batchThreads);
+    }
+
+    private int enqueueKernelLaunchImpl(long executionPlanId, byte[] moduleWrapper, String javaName, String kernelFunctionName,
+                                        int potentialBlockSize, KernelStackFrame kernelArgs, TaskDataContext taskMeta, long batchThreads) {
+        // Create a lightweight wrapper that PTXGridInfo and scheduler can use
+        final byte[] finalModuleWrapper = moduleWrapper;
+        final int finalPotentialBlockSize = potentialBlockSize;
+        PTXModule tempModule = new PTXModule(javaName, new byte[0], kernelFunctionName, new int[0], new long[0]) {
+            public final byte[] moduleWrapper = finalModuleWrapper;
+            @Override
+            public int getPotentialBlockSizeMaxOccupancy() { return finalPotentialBlockSize; }
+        };
+
         int[] blockDimension = { 1, 1, 1 };
         int[] gridDimension = { 1, 1, 1 };
         if (taskMeta.isWorkerGridAvailable()) {
@@ -274,24 +297,24 @@ public class PTXDeviceContext implements TornadoDeviceContext {
                 blockDimension = Arrays.stream(grid.getLocalWork()).mapToInt(l -> (int) l).toArray();
             } else {
 
-                blockDimension = scheduler.calculateBlockDimension(grid.getGlobalWork(), module.getPotentialBlockSizeMaxOccupancy(), grid.dimension(), module.javaName);
+                blockDimension = scheduler.calculateBlockDimension(grid.getGlobalWork(), potentialBlockSize, grid.dimension(), javaName);
             }
 
-            PTXGridInfo gridInfo = new PTXGridInfo(module, Arrays.stream(blockDimension).mapToLong(i -> i).toArray());
+            PTXGridInfo gridInfo = new PTXGridInfo(tempModule, Arrays.stream(blockDimension).mapToLong(i -> i).toArray());
             boolean checkedDimensions = gridInfo.checkGridDimensions();
             if (!checkedDimensions) {
-                blockDimension = scheduler.calculateBlockDimension(grid.getGlobalWork(), module.getPotentialBlockSizeMaxOccupancy(), grid.dimension(), module.javaName);
+                blockDimension = scheduler.calculateBlockDimension(grid.getGlobalWork(), potentialBlockSize, grid.dimension(), javaName);
                 System.out.println("Warning: TornadoVM changed the user-defined local size to the following: [" + blockDimension[0] + ", " + blockDimension[1] + ", " + blockDimension[2] + "].");
             }
-            gridDimension = scheduler.calculateGridDimension(module.javaName, grid.dimension(), global, blockDimension);
+            gridDimension = scheduler.calculateGridDimension(javaName, grid.dimension(), global, blockDimension);
         } else if (taskMeta.isParallel()) {
             scheduler.calculateGlobalWork(taskMeta, batchThreads);
-            blockDimension = scheduler.calculateBlockDimension(module, taskMeta);
-            gridDimension = scheduler.calculateGridDimension(module, taskMeta, blockDimension);
+            blockDimension = scheduler.calculateBlockDimension(tempModule, taskMeta);
+            gridDimension = scheduler.calculateGridDimension(tempModule, taskMeta, blockDimension);
         }
 
         PTXStream stream = getStream(executionPlanId);
-        int kernelLaunchEvent = stream.enqueueKernelLaunch(executionPlanId, module, taskMeta, writePTXKernelContextOnDevice(executionPlanId, (PTXKernelStackFrame) kernelArgs, taskMeta), gridDimension,
+        int kernelLaunchEvent = stream.enqueueKernelLaunch(executionPlanId, tempModule, taskMeta, writePTXKernelContextOnDevice(executionPlanId, (PTXKernelStackFrame) kernelArgs, taskMeta), gridDimension,
                 blockDimension);
         updateProfiler(executionPlanId, kernelLaunchEvent, taskMeta);
         return kernelLaunchEvent;
