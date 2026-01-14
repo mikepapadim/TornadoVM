@@ -304,7 +304,7 @@ public class PTXBackend extends XPUBackend<PTXProviders> implements FrameMap.Ref
         boolean first = true;
 
         for (int i = 0; i < incomingArguments.getArgumentCount(); i++) {
-            // Skip the kernel context object (CUDA doesn't need it in signature)
+            // Skip kernel_context - it's not needed in CUDA, arrays have metadata embedded
             if (locals[i].getType().toJavaName().equals(KernelContext.class.getName())) {
                 continue;
             }
@@ -321,12 +321,11 @@ public class PTXBackend extends XPUBackend<PTXProviders> implements FrameMap.Ref
             PTXKind kind = (PTXKind) param.getPlatformKind();
 
             if (locals[i].getType().getJavaKind().isPrimitive() || isHalfFloat(locals[i].getType())) {
-                // Primitives: emit as C++ type with pointer
+                // Primitives: emit as C++ type
                 asm.emit("%s %s", ptxKindToCType(kind), locals[i].getName());
             } else {
-                // Arrays/objects: emit as pointer to element type
-                String elementType = getArrayElementCType(locals[i].getType());
-                asm.emit("%s* %s", elementType, locals[i].getName());
+                // Arrays/objects: emit as void* (like PTX, metadata is embedded at offset 24)
+                asm.emit("void* %s", locals[i].getName());
             }
         }
     }

@@ -510,6 +510,13 @@ public class PTXNodeLIRBuilder extends NodeLIRBuilder {
         final Variable predicate = emitLogicNode(x.condition());
 
         if (isLoop) {
+            // For loop headers, emit LoopConditionOp for CUDA structured control flow
+            // The condition needs to be negated for loop exit (if we exit when condition is false)
+            final Value condition = isNegated ? emitNegatedLogicNode(x.condition()) : predicate;
+            append(new PTXControlFlow.LoopConditionOp(condition));
+
+            // Also emit Branch for PTX mode compatibility (LoopConditionOp is no-op in PTX mode)
+            // In CUDA mode, this branch won't be emitted by the block visitor
             getGen().emitConditionalBranch(isNegated ? getLIRBlock(x.trueSuccessor()) : getLIRBlock(x.falseSuccessor()), predicate, !isNegated, false);
         } else {
             getGen().emitConditionalBranch(getLIRBlock(x.falseSuccessor()), predicate, true, false);
@@ -652,6 +659,12 @@ public class PTXNodeLIRBuilder extends NodeLIRBuilder {
             }
         }
 
+        // Emit structured loop operations for CUDA mode support
+        // These operations emit different code based on CodeGenMode:
+        // - PTX mode: emits labels and gotos
+        // - CUDA mode: emits for(...) structured loops
+        append(new PTXControlFlow.LoopInitOp());
+        append(new PTXControlFlow.LoopPostOp());
         append(new PTXControlFlow.LoopLabel(block.getId()));
 
         label.clearIncomingValues();

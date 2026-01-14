@@ -35,6 +35,7 @@ import org.graalvm.compiler.lir.LabelRef;
 import jdk.vm.ci.meta.Value;
 import uk.ac.manchester.tornado.api.exceptions.TornadoInternalError;
 import uk.ac.manchester.tornado.drivers.ptx.graal.asm.PTXAssembler;
+import uk.ac.manchester.tornado.drivers.ptx.graal.backend.CodeGenMode;
 import uk.ac.manchester.tornado.drivers.ptx.graal.compiler.PTXCompilationResultBuilder;
 import uk.ac.manchester.tornado.drivers.ptx.graal.lir.PTXLIRStmt.AbstractInstruction;
 
@@ -56,7 +57,12 @@ public class PTXControlFlow {
 
         @Override
         public void emitCode(PTXCompilationResultBuilder crb, PTXAssembler asm) {
-            asm.emitLoopLabel(blockId);
+            // In CUDA mode with structured loops, we don't need loop labels
+            // The for-loop structure handles iteration without labels/gotos
+            if (asm.getCodeGenMode() == uk.ac.manchester.tornado.drivers.ptx.graal.backend.CodeGenMode.PTX) {
+                asm.emitLoopLabel(blockId);
+            }
+            // In CUDA mode: no-op, labels not needed for structured loops
         }
     }
 
@@ -107,16 +113,18 @@ public class PTXControlFlow {
         }
 
         private void emitCUDA(PTXAssembler asm) {
-            // CUDA: Convert branch to goto
-            asm.emitCudaIndent();
-            asm.emit("goto ");
-            if (isLoopEdgeBack) {
-                asm.emit("LOOP_COND_" + destination.label().getBlockId());
-            } else {
-                asm.emit("BLOCK_" + destination.label().getBlockId());
+            // In CUDA mode with structured loops:
+            // - Conditional branches in loop headers are handled by LoopConditionOp (if-break)
+            // - Loop back-edges are handled by the for-loop closing brace (implicit iteration)
+            // - Only emit unconditional non-loop branches (regular gotos)
+            if (!isConditional && !isLoopEdgeBack) {
+                // Unconditional non-loop branch: emit goto
+                asm.emitCudaIndent();
+                asm.emit("goto BLOCK_" + destination.label().getBlockId() + ";");
+                asm.eol();
             }
-            asm.emit(";");
-            asm.eol();
+            // Conditional branches suppressed - handled by LoopConditionOp
+            // Loop back-edges suppressed - handled by for-loop closing brace
         }
     }
 
@@ -185,7 +193,10 @@ public class PTXControlFlow {
         @Override
         public void emitCode(PTXCompilationResultBuilder crb, PTXAssembler asm) {
             if (asm.getCodeGenMode() == CodeGenMode.CUDA) {
-                asm.emit(") {");
+                // Emit ";;" for infinite loop if loop header is empty
+                // This creates "for (;;) {" which is valid C++
+                // If loop formatting adds init/cond/incr, they'll replace the semicolons
+                asm.emit(";;) {");
                 asm.indentOn();
                 asm.eolOn();
                 asm.eol();

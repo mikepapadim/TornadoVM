@@ -178,6 +178,70 @@ public class PTXAssembler extends Assembler {
         }
     }
 
+    // Structured control flow methods for CUDA mode
+    public void beginScope() {
+        if (codeGenMode == CodeGenMode.CUDA) {
+            emitCudaIndent();
+            emitLine("{");
+            increaseIndent();
+        }
+    }
+
+    public void endScope() {
+        if (codeGenMode == CodeGenMode.CUDA) {
+            decreaseIndent();
+            emitCudaIndent();
+            emitLine("}");
+        }
+    }
+
+    public void endScope(String comment) {
+        if (codeGenMode == CodeGenMode.CUDA) {
+            decreaseIndent();
+            emitCudaIndent();
+            emit("} // ");
+            emitLine(comment);
+        }
+    }
+
+    public void ifStmt(PTXCompilationResultBuilder crb, Value condition) {
+        if (codeGenMode == CodeGenMode.CUDA) {
+            emitCudaIndent();
+            emit("if (");
+            if (condition instanceof PTXLIROp) {
+                ((PTXLIROp) condition).emit(crb, this, null);
+            } else {
+                emit(toStringWithMode(condition));
+            }
+            emitLine(")");
+        }
+    }
+
+    public void elseStmt() {
+        if (codeGenMode == CodeGenMode.CUDA) {
+            emit("else");
+        }
+    }
+
+    public void forStmt() {
+        if (codeGenMode == CodeGenMode.CUDA) {
+            emit("for (");
+        }
+    }
+
+    public void whileStmt(PTXCompilationResultBuilder crb, Value condition) {
+        if (codeGenMode == CodeGenMode.CUDA) {
+            emitCudaIndent();
+            emit("while (");
+            if (condition instanceof PTXLIROp) {
+                ((PTXLIROp) condition).emit(crb, this, null);
+            } else {
+                emit(toStringWithMode(condition));
+            }
+            emitLine(")");
+        }
+    }
+
     public String getCudaBinaryOp(PTXBinaryOp op) {
         return switch (op.opcode) {
             case "add" -> "+";

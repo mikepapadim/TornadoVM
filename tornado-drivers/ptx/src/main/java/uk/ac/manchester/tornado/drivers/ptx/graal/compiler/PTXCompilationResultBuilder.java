@@ -24,9 +24,12 @@ package uk.ac.manchester.tornado.drivers.ptx.graal.compiler;
 
 import static uk.ac.manchester.tornado.runtime.graal.TornadoLIRGenerator.trace;
 
+import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Set;
 import java.util.Stack;
 import java.util.stream.IntStream;
@@ -37,8 +40,12 @@ import org.graalvm.compiler.asm.Assembler;
 import org.graalvm.compiler.code.CompilationResult;
 import org.graalvm.compiler.core.common.spi.CodeGenProviders;
 import org.graalvm.compiler.debug.DebugContext;
+import org.graalvm.compiler.lir.InstructionValueProcedure;
 import org.graalvm.compiler.lir.LIR;
 import org.graalvm.compiler.lir.LIRInstruction;
+import org.graalvm.compiler.lir.LIRInstruction.OperandFlag;
+import org.graalvm.compiler.lir.LIRInstruction.OperandMode;
+import org.graalvm.compiler.lir.Variable;
 import org.graalvm.compiler.lir.asm.CompilationResultBuilder;
 import org.graalvm.compiler.lir.asm.DataBuilder;
 import org.graalvm.compiler.lir.asm.FrameContext;
@@ -59,10 +66,15 @@ import org.graalvm.compiler.options.OptionValues;
 
 import jdk.vm.ci.code.Register;
 import jdk.vm.ci.meta.ResolvedJavaMethod;
+import jdk.vm.ci.meta.Value;
 import uk.ac.manchester.tornado.api.exceptions.TornadoInternalError;
 import uk.ac.manchester.tornado.drivers.ptx.PTXDeviceContext;
 import uk.ac.manchester.tornado.drivers.ptx.graal.asm.PTXAssembler;
 import uk.ac.manchester.tornado.drivers.ptx.graal.lir.PTXControlFlow;
+import uk.ac.manchester.tornado.drivers.ptx.graal.lir.PTXControlFlow.LoopConditionOp;
+import uk.ac.manchester.tornado.drivers.ptx.graal.lir.PTXControlFlow.LoopInitOp;
+import uk.ac.manchester.tornado.drivers.ptx.graal.lir.PTXControlFlow.LoopPostOp;
+import uk.ac.manchester.tornado.drivers.ptx.graal.lir.PTXLIRStmt.AssignStmt;
 import uk.ac.manchester.tornado.runtime.tasks.meta.TaskDataContext;
 
 public class PTXCompilationResultBuilder extends CompilationResultBuilder {
@@ -240,6 +252,167 @@ public class PTXCompilationResultBuilder extends CompilationResultBuilder {
                 throw e.addContext("lir instruction", HIRBlock + "@" + breakInst.id() + " " + breakInst + "\n");
             }
         }
+    }
+
+    /**
+     * Checks if loop header can be formatted into structured for-loop.
+     * Returns true if LoopConditionOp is close enough to LoopInitOp/LoopPostOp
+     * allowing only LoopLabel and a few AssignStmts in between.
+     *
+     * @return true if the loop can be formatted.
+     */
+    private static boolean shouldFormatLoopHeader(List<LIRInstruction> instructions) {
+        int loopInitOpIndex = -1, loopPostOpIndex = -1, loopConditionOpIndex = -1;
+
+        for (int index = 0, instructionsSize = instructions.size(); index < instructionsSize; index++) {
+            LIRInstruction instruction = instructions.get(index);
+            if (instruction instanceof LoopInitOp) {
+                loopInitOpIndex = index;
+            }
+            if (instruction instanceof LoopPostOp) {
+                loopPostOpIndex = index;
+            }
+            if (instruction instanceof LoopConditionOp) {
+                loopConditionOpIndex = index;
+            }
+        }
+
+        // Check if we found all required operations
+        if (loopInitOpIndex == -1 || loopPostOpIndex == -1 || loopConditionOpIndex == -1) {
+            return false;
+        }
+
+        // Check order: LoopInitOp, LoopPostOp, ..., LoopConditionOp
+        if (loopInitOpIndex >= loopPostOpIndex || loopPostOpIndex >= loopConditionOpIndex) {
+            return false;
+        }
+
+        // Count instructions between LoopPostOp and LoopConditionOp
+        // Allow: LoopLabel (ignored in CUDA mode) and a few AssignStmts
+        int betweenCount = 0;
+        for (int i = loopPostOpIndex + 1; i < loopConditionOpIndex; i++) {
+            LIRInstruction instr = instructions.get(i);
+            if (instr instanceof PTXControlFlow.LoopLabel) {
+                // LoopLabel is a no-op in CUDA mode, skip it
+                continue;
+            }
+            if (instr instanceof AssignStmt) {
+                // AssignStmts can be moved by formatLoopHeader
+                betweenCount++;
+                continue;
+            }
+            // Other instructions prevent formatting
+            return false;
+        }
+
+        // Allow up to 3 AssignStmts between (for condition calculation)
+        return betweenCount <= 3;
+    }
+
+    /**
+     * Checks if the loop condition is right after the loop header instructions.
+     *
+     * @return true if the {@param loopCondIndex} is right after the LIR
+     *     instructions of a loop header ({@param loopPostOpIndex} and
+     *     {@param loopInitOpIndex}).
+     */
+    private static boolean isLoopConditionRightAfterHeader(int loopCondIndex, int loopPostOpIndex, int loopInitOpIndex) {
+        return (loopCondIndex - 1 == loopPostOpIndex) && (loopCondIndex - 2 == loopInitOpIndex);
+    }
+
+    /**
+     * Formats a loop header by reorganizing instructions to create structured for-loop syntax.
+     * This method:
+     * 1. Finds the LoopConditionOp and tells it not to generate if/break
+     * 2. Moves condition-dependent instructions after LoopPostOp
+     * 3. Reorders instructions to form: for (init; condition; increment)
+     */
+    private static void formatLoopHeader(List<LIRInstruction> instructions) {
+        int index = instructions.size() - 1;
+
+        // Find the LoopConditionOp
+        LIRInstruction condition = instructions.get(index);
+        while (!(condition instanceof LoopConditionOp)) {
+            index--;
+            condition = instructions.get(index);
+        }
+        // Tell it to emit just the condition, not if/break
+        ((LoopConditionOp) condition).setGenerateIfBreakStatement(false);
+
+        // Remove condition from current position
+        instructions.remove(index);
+
+        // Find all values that the condition depends on
+        final Set<Value> dependencies = new HashSet<>();
+        DepFinder df = new DepFinder(dependencies);
+        condition.forEachInput(df);
+
+        // Move dependent assignments to be right before LoopPostOp
+        index--;
+        final List<LIRInstruction> moved = new ArrayList<>();
+        LIRInstruction insn = instructions.get(index);
+        while (!(insn instanceof LoopPostOp)) {
+            if (insn instanceof AssignStmt) {
+                AssignStmt assign = (AssignStmt) insn;
+                if (assign.getResult() instanceof Variable) {
+                    Variable var = (Variable) assign.getResult();
+                    if (dependencies.contains(var)) {
+                        moved.add(instructions.remove(index));
+                    }
+                }
+            }
+            index--;
+            insn = instructions.get(index);
+        }
+
+        // Find LoopInitOp
+        LIRInstruction loopInit = instructions.get(instructions.size() - 1);
+        while (!(loopInit instanceof LoopInitOp)) {
+            index--;
+            loopInit = instructions.get(index);
+        }
+
+        // Insert condition after LoopInitOp
+        instructions.add(index + 1, condition);
+        // Insert moved dependencies before LoopPostOp
+        instructions.addAll(index - 1, moved);
+    }
+
+    /**
+     * Helper class to find instruction dependencies.
+     */
+    private static class DepFinder implements InstructionValueProcedure {
+        private final Set<Value> dependencies;
+
+        DepFinder(final Set<Value> dependencies) {
+            this.dependencies = dependencies;
+        }
+
+        @Override
+        public Value doValue(LIRInstruction instruction, Value value, OperandMode mode, EnumSet<OperandFlag> flags) {
+            if (value instanceof Variable) {
+                dependencies.add(value);
+            }
+            return value;
+        }
+
+        public Set<Value> getDependencies() {
+            return dependencies;
+        }
+    }
+
+    /**
+     * Emits a loop header block with potential loop header formatting.
+     * Used by structured control flow in CUDA mode.
+     */
+    void emitLoopBlock(HIRBlock block) {
+        final List<LIRInstruction> headerInstructions = lir.getLIRforBlock(block);
+
+        // TODO: Loop header formatting (for (init; cond; incr)) causes variable ordering issues
+        // For now, use simple for() { if-break } structure which compiles successfully
+        // Future work: Port OCL's loop header formatting correctly
+
+        emitBlock(block);
     }
 
     private void traverseControlFlowGraph(ControlFlowGraph cfg, PTXBlockVisitor visitor) {

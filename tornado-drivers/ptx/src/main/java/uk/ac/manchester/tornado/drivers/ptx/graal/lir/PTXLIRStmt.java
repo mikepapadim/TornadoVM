@@ -431,6 +431,14 @@ public class PTXLIRStmt {
 
         @Override
         public void emitCode(PTXCompilationResultBuilder crb, PTXAssembler asm) {
+            if (asm.getCodeGenMode() == uk.ac.manchester.tornado.drivers.ptx.graal.backend.CodeGenMode.CUDA) {
+                emitCUDA(crb, asm);
+            } else {
+                emitPTX(crb, asm);
+            }
+        }
+
+        private void emitPTX(PTXCompilationResultBuilder crb, PTXAssembler asm) {
             asm.emitSymbol(TAB);
             // casts an 8-byte address to a 4-byte pointer
             // ld.global.u32 %r_compressed, [%r_address];
@@ -442,7 +450,21 @@ public class PTXLIRStmt {
             asm.emit("]");
             asm.delimiter();
             asm.eol();
+        }
 
+        private void emitCUDA(PTXCompilationResultBuilder crb, PTXAssembler asm) {
+            // Memory load: ld.global.u32 rui8, [rud9] -> unsigned int rui8 = *((unsigned int*)rud9);
+            String compressedStr = asm.toStringWithMode(compressed);
+            String addressStr = asm.toStringWithMode(address);
+            PTXKind compressedType = (PTXKind) compressed.getPlatformKind();
+
+            // Declare variable if needed
+            asm.emitCudaVariableDecl(compressedStr, compressedType);
+
+            asm.emitCudaIndent();
+            String cudaType = asm.getCudaType(compressedType);
+            asm.emit(compressedStr + " = *((" + cudaType + "*)" + addressStr + ");");
+            asm.eol();
         }
 
     }
@@ -472,6 +494,14 @@ public class PTXLIRStmt {
 
         @Override
         public void emitCode(PTXCompilationResultBuilder crb, PTXAssembler asm) {
+            if (asm.getCodeGenMode() == uk.ac.manchester.tornado.drivers.ptx.graal.backend.CodeGenMode.CUDA) {
+                emitCUDA(crb, asm);
+            } else {
+                emitPTX(crb, asm);
+            }
+        }
+
+        private void emitPTX(PTXCompilationResultBuilder crb, PTXAssembler asm) {
             // Convert the 32-bit compressed value to 64-bit
             // cvt.s64.s32 %temp64, %compressed;
             asm.emitSymbol(TAB);
@@ -506,6 +536,36 @@ public class PTXLIRStmt {
             asm.emit(", ");
             asm.emitValue(tempShifted);
             asm.delimiter();
+            asm.eol();
+        }
+
+        private void emitCUDA(PTXCompilationResultBuilder crb, PTXAssembler asm) {
+            String temp64Str = asm.toStringWithMode(temp64);
+            String tempShiftedStr = asm.toStringWithMode(tempShifted);
+            String decompressedStr = asm.toStringWithMode(decompressed);
+            String compressedStr = asm.toStringWithMode(compressed);
+            String baseStr = asm.toStringWithMode(base);
+
+            PTXKind temp64Type = (PTXKind) temp64.getPlatformKind();
+            PTXKind tempShiftedType = (PTXKind) tempShifted.getPlatformKind();
+            PTXKind decompressedType = (PTXKind) decompressed.getPlatformKind();
+
+            // cvt.s64.s32 %temp64, %compressed; -> long long temp64 = (long long)compressed;
+            asm.emitCudaVariableDecl(temp64Str, temp64Type);
+            asm.emitCudaIndent();
+            asm.emit(temp64Str + " = (long long)" + compressedStr + ";");
+            asm.eol();
+
+            // shl.b64 %tempShifted, %temp64, 3; -> long long tempShifted = temp64 << 3;
+            asm.emitCudaVariableDecl(tempShiftedStr, tempShiftedType);
+            asm.emitCudaIndent();
+            asm.emit(tempShiftedStr + " = " + temp64Str + " << 3;");
+            asm.eol();
+
+            // add.u64 %decompressed, %base, %tempShifted; -> unsigned long long decompressed = base + tempShifted;
+            asm.emitCudaVariableDecl(decompressedStr, decompressedType);
+            asm.emitCudaIndent();
+            asm.emit(decompressedStr + " = " + baseStr + " + " + tempShiftedStr + ";");
             asm.eol();
         }
     }
@@ -1229,9 +1289,9 @@ public class PTXLIRStmt {
                 // Parameter load: ld.param.u64 rud1, [a] -> rud1 = (long long)a;
                 String paramName = address.getName();
 
-                // Skip kernel_context parameter load in CUDA mode
+                // Skip kernel_context - CUDA doesn't use it, arrays have metadata embedded
                 if ("kernel_context".equals(paramName)) {
-                    asm.emit("// Skipping kernel_context load (not needed in CUDA)");
+                    asm.emit("// kernel_context not used in CUDA mode");
                     asm.eol();
                     return;
                 }
