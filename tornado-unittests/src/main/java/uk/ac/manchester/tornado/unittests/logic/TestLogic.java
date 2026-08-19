@@ -100,6 +100,17 @@ public class TestLogic extends TornadoTestBase {
         }
     }
 
+    // A || (B && C) exhaustively over 16 neighbour counts x {DEAD, ALIVE}, the Game-of-Life
+    // B3/S23 survival predicate as written in upstream Java source (OQ-17).
+    public static void logicOrOfAnd(IntArray count, IntArray cell, IntArray output) {
+        for (@Parallel int i = 0; i < count.getSize(); i++) {
+            int c = count.get(i);
+            int v = cell.get(i);
+            boolean result = (c == 3) || ((c == 2) && (v == -1));
+            output.set(i, result ? -1 : 0);
+        }
+    }
+
     @Test
     public void testLogic01() throws TornadoExecutionPlanException {
         final int N = 1024;
@@ -288,6 +299,35 @@ public class TestLogic extends TornadoTestBase {
 
         for (int i = 0; i < N; i++) {
             assertEquals(sequential.get(i), output.get(i));
+        }
+    }
+
+    @Test
+    public void testLogicOrOfAnd() throws TornadoExecutionPlanException {
+        final int N = 256;
+        IntArray count = new IntArray(N);
+        IntArray cell = new IntArray(N);
+        IntArray output = new IntArray(N);
+        IntArray sequential = new IntArray(N);
+
+        for (int i = 0; i < N; i++) {
+            count.set(i, (i >> 1) & 0xf); // 0..15 neighbour counts
+            cell.set(i, (i & 1) != 0 ? -1 : 0); // the only two cell encodings life produces
+        }
+
+        TaskGraph taskGraph = new TaskGraph("taskGraph") //
+                .transferToDevice(DataTransferMode.FIRST_EXECUTION, count, cell) //
+                .task("t0", TestLogic::logicOrOfAnd, count, cell, output) //
+                .transferToHost(DataTransferMode.EVERY_EXECUTION, output);
+
+        ImmutableTaskGraph immutableTaskGraph = taskGraph.snapshot();
+        try (TornadoExecutionPlan executionPlan = new TornadoExecutionPlan(immutableTaskGraph)) {
+            executionPlan.execute();
+        }
+        logicOrOfAnd(count, cell, sequential);
+
+        for (int i = 0; i < N; i++) {
+            assertEquals("index " + i + ": count=" + count.get(i) + " cell=" + cell.get(i), sequential.get(i), output.get(i));
         }
     }
     // CHECKSTYLE:ON
