@@ -86,6 +86,12 @@ public class TornadoOptions {
     public static final boolean CUDA_BATCH_GLOBAL_LOADS = getBooleanValue("tornado.cuda.batchGlobalLoads", "True");
 
     /**
+     * Option to batch the global loads of a shared-memory staging sequence on the OpenCL backend,
+     * the same reordering {@link #CUDA_BATCH_GLOBAL_LOADS} performs for CUDA.
+     */
+    public static final boolean OPENCL_BATCH_GLOBAL_LOADS = getBooleanValue("tornado.opencl.batchGlobalLoads", "True");
+
+    /**
      * Enable thread deployment debugging from the TornadoVM runtime and code dispatcher.
      */
     public static final boolean THREAD_INFO = getBooleanValue("tornado.threadInfo", FALSE);

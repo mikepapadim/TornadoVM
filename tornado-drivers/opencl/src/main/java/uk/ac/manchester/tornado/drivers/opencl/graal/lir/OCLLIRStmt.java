@@ -70,7 +70,12 @@ public class OCLLIRStmt {
     }
 
     @Opcode("ASSIGN")
-    public static class AssignStmt extends AbstractInstruction {
+    public static class AssignStmt extends AbstractInstruction implements PureRegisterComputation {
+
+        @Override
+        public Value getDefinedValue() {
+            return lhs;
+        }
 
         public static final LIRInstructionClass<AssignStmt> TYPE = LIRInstructionClass.create(AssignStmt.class);
 
@@ -146,7 +151,12 @@ public class OCLLIRStmt {
     }
 
     @Opcode("DECOMPRESS_POINTER")
-    public static class DecompressPointerStmt extends AbstractInstruction {
+    public static class DecompressPointerStmt extends AbstractInstruction implements PureRegisterComputation {
+
+        @Override
+        public Value getDefinedValue() {
+            return decompressed;
+        }
         public static final LIRInstructionClass<DecompressPointerStmt> TYPE = LIRInstructionClass.create(DecompressPointerStmt.class);
         @Def
         protected Value decompressed;
@@ -185,7 +195,12 @@ public class OCLLIRStmt {
     }
 
     @Opcode("CONVERT_HALF")
-    public static class ConvertHalfToFloatStmt extends AbstractInstruction {
+    public static class ConvertHalfToFloatStmt extends AbstractInstruction implements PureRegisterComputation {
+
+        @Override
+        public Value getDefinedValue() {
+            return floatValue;
+        }
 
         public static final LIRInstructionClass<ConvertHalfToFloatStmt> TYPE = LIRInstructionClass.create(ConvertHalfToFloatStmt.class);
 
@@ -218,7 +233,12 @@ public class OCLLIRStmt {
     }
 
     @Opcode("CONVERT_FLOAT_TO_HALF")
-    public static class ConvertFloatToHalfStmt extends AbstractInstruction {
+    public static class ConvertFloatToHalfStmt extends AbstractInstruction implements PureRegisterComputation {
+
+        @Override
+        public Value getDefinedValue() {
+            return halfValue;
+        }
 
         public static final LIRInstructionClass<ConvertFloatToHalfStmt> TYPE = LIRInstructionClass.create(ConvertFloatToHalfStmt.class);
 
@@ -249,7 +269,12 @@ public class OCLLIRStmt {
     }
 
     @Opcode("VADD_HALF")
-    public static class VectorAddHalfStmt extends AbstractInstruction {
+    public static class VectorAddHalfStmt extends AbstractInstruction implements PureRegisterComputation {
+
+        @Override
+        public Value getDefinedValue() {
+            return result;
+        }
 
         public static final LIRInstructionClass<VectorAddHalfStmt> TYPE = LIRInstructionClass.create(VectorAddHalfStmt.class);
 
@@ -296,7 +321,12 @@ public class OCLLIRStmt {
     }
 
     @Opcode("ADD_HALF")
-    public static class AddHalfStmt extends AbstractInstruction {
+    public static class AddHalfStmt extends AbstractInstruction implements PureRegisterComputation {
+
+        @Override
+        public Value getDefinedValue() {
+            return result;
+        }
 
         public static final LIRInstructionClass<AddHalfStmt> TYPE = LIRInstructionClass.create(AddHalfStmt.class);
 
@@ -333,7 +363,12 @@ public class OCLLIRStmt {
     }
 
     @Opcode("SUB_HALF")
-    public static class SubHalfStmt extends AbstractInstruction {
+    public static class SubHalfStmt extends AbstractInstruction implements PureRegisterComputation {
+
+        @Override
+        public Value getDefinedValue() {
+            return result;
+        }
 
         public static final LIRInstructionClass<SubHalfStmt> TYPE = LIRInstructionClass.create(SubHalfStmt.class);
 
@@ -370,7 +405,12 @@ public class OCLLIRStmt {
     }
 
     @Opcode("VSUB_HALF")
-    public static class VectorSubHalfStmt extends AbstractInstruction {
+    public static class VectorSubHalfStmt extends AbstractInstruction implements PureRegisterComputation {
+
+        @Override
+        public Value getDefinedValue() {
+            return result;
+        }
 
         public static final LIRInstructionClass<VectorSubHalfStmt> TYPE = LIRInstructionClass.create(VectorSubHalfStmt.class);
 
@@ -417,7 +457,12 @@ public class OCLLIRStmt {
     }
 
     @Opcode("MULT_HALF")
-    public static class MultHalfStmt extends AbstractInstruction {
+    public static class MultHalfStmt extends AbstractInstruction implements PureRegisterComputation {
+
+        @Override
+        public Value getDefinedValue() {
+            return result;
+        }
 
         public static final LIRInstructionClass<MultHalfStmt> TYPE = LIRInstructionClass.create(MultHalfStmt.class);
 
@@ -454,7 +499,12 @@ public class OCLLIRStmt {
     }
 
     @Opcode("VMULT_HALF")
-    public static class VectorMultHalfStmt extends AbstractInstruction {
+    public static class VectorMultHalfStmt extends AbstractInstruction implements PureRegisterComputation {
+
+        @Override
+        public Value getDefinedValue() {
+            return result;
+        }
 
         public static final LIRInstructionClass<VectorMultHalfStmt> TYPE = LIRInstructionClass.create(VectorMultHalfStmt.class);
 
@@ -501,7 +551,12 @@ public class OCLLIRStmt {
     }
 
     @Opcode("DIV_HALF")
-    public static class DivHalfStmt extends AbstractInstruction {
+    public static class DivHalfStmt extends AbstractInstruction implements PureRegisterComputation {
+
+        @Override
+        public Value getDefinedValue() {
+            return result;
+        }
 
         public static final LIRInstructionClass<DivHalfStmt> TYPE = LIRInstructionClass.create(DivHalfStmt.class);
 
@@ -646,7 +701,7 @@ public class OCLLIRStmt {
          *
          * @return boolean This returns if the memory base is private or local.
          */
-        private boolean isLocalOrPrivateLoad() {
+        public boolean isLocalOrPrivateLoad() {
             return this.cast.getMemorySpace().getBase().getMemorySpace() == OCLMemorySpace.LOCAL || this.cast.getMemorySpace().getBase().getMemorySpace() == OCLMemorySpace.PRIVATE;
         }
 
@@ -660,6 +715,10 @@ public class OCLLIRStmt {
 
         public MemoryAccess getAddress() {
             return address;
+        }
+    
+        public Value getIndex() {
+            return index;
         }
     }
 
@@ -823,7 +882,7 @@ public class OCLLIRStmt {
          *
          * @return It returns true if the memory base is private or local.
          */
-        private boolean isLocalOrPrivateStore() {
+        public boolean isLocalOrPrivateStore() {
             return this.cast.getMemorySpace().getBase().getMemorySpace() == OCLMemorySpace.LOCAL || this.cast.getMemorySpace().getBase().getMemorySpace() == OCLMemorySpace.PRIVATE;
         }
 
@@ -837,6 +896,10 @@ public class OCLLIRStmt {
 
         public MemoryAccess getAddress() {
             return address;
+        }
+
+        public Value getIndex() {
+            return index;
         }
     }
 

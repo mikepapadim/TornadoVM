@@ -66,6 +66,7 @@ import uk.ac.manchester.tornado.drivers.opencl.graal.lir.OCLControlFlow.LoopInit
 import uk.ac.manchester.tornado.drivers.opencl.graal.lir.OCLControlFlow.LoopPostOp;
 import uk.ac.manchester.tornado.drivers.opencl.graal.lir.OCLLIRStmt;
 import uk.ac.manchester.tornado.drivers.opencl.graal.lir.OCLLIRStmt.AssignStmt;
+import uk.ac.manchester.tornado.runtime.common.TornadoOptions;
 import uk.ac.manchester.tornado.runtime.tasks.meta.TaskDataContext;
 
 public class OCLCompilationResultBuilder extends CompilationResultBuilder {
@@ -283,7 +284,11 @@ public class OCLCompilationResultBuilder extends CompilationResultBuilder {
         LIRInstruction breakInst = null;
 
         boolean relocatableInstruction = false;
-        for (LIRInstruction op : lir.getLIRforBlock(block)) {
+        List<LIRInstruction> instructions = lir.getLIRforBlock(block);
+        if (TornadoOptions.OPENCL_BATCH_GLOBAL_LOADS) {
+            instructions = OCLGlobalLoadBatching.reorder(instructions);
+        }
+        for (LIRInstruction op : instructions) {
             if (op instanceof OCLLIRStmt.MarkRelocateInstruction) {
                 relocatableInstruction = true;
             }
