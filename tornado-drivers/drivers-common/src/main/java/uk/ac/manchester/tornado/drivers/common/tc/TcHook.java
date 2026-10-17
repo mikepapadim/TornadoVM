@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -49,6 +50,7 @@ import uk.ac.manchester.tornado.tc.ir.target.TargetCaps;
 import uk.ac.manchester.tornado.tc.runtime.TcCompiler;
 import uk.ac.manchester.tornado.tc.runtime.TcOptions;
 import uk.ac.manchester.tornado.tc.tornado.AtomicSlots;
+import uk.ac.manchester.tornado.tc.tornado.ParallelLoopLowering;
 import uk.ac.manchester.tornado.tc.tornado.ValueSpecialisation;
 
 /**
@@ -80,6 +82,7 @@ public final class TcHook {
 
     private static final AtomicInteger COMPILED = new AtomicInteger();
     private static final AtomicInteger REUSED = new AtomicInteger();
+    private static final AtomicInteger FROM_DISK = new AtomicInteger();
 
     /**
      * Everything a compilation reads: the method (its class and loader), the target, the options and
@@ -128,17 +131,14 @@ public final class TcHook {
     private static final AtomicInteger GENERIC = new AtomicInteger();
 
     /** What a compilation leaves for later tasks (not its stages). */
-    private record Compiled(String source, String entryName, long nanos, List<uk.ac.manchester.tornado.tc.tornado.ParallelLoopLowering.Domain> domain, AtomicSlots.Info atomics,
+    record Compiled(String source, String entryName, long nanos, List<ParallelLoopLowering.Domain> domain, AtomicSlots.Info atomics,
             KernelFeatures features, String task, boolean taskInSource) {
     }
 
-    /** Most recent compilations; a model's layers share one entry per kernel. */
-    private static final Map<Key, Compiled> COMPILATIONS = java.util.Collections.synchronizedMap(new java.util.LinkedHashMap<>(64, 0.75f, true) {
-        @Override
-        protected boolean removeEldestEntry(Map.Entry<Key, Compiled> eldest) {
-            return size() > 2048;
-        }
-    });
+    /** Compilations by key, finished or running; a model's layers share one entry per kernel. */
+    private static final Map<Key, CompletableFuture<Compiled>> COMPILATIONS = new ConcurrentHashMap<>();
+
+    private static final int MAX_COMPILATIONS = 4096;
     private static final Map<String, AtomicInteger> REFUSED = new ConcurrentHashMap<>();
 
     static {
@@ -219,19 +219,44 @@ public final class TcHook {
 
     /** The memoised compilation for {@code key}, or a new one. */
     private static Optional<Compiled> compileOrReuse(String name, Class<?> owner, ClassLoader loader, String descriptor, TcOptions options, Key key, String taskId) {
-        var compiled = MEMOIZE ? COMPILATIONS.get(key) : null;
-        if (compiled != null && (!compiled.taskInSource() || compiled.task().equals(taskId))) {
+        Compiled compiled = null;
+        CompletableFuture<Compiled> mine = null;
+        if (MEMOIZE) {
+            // An earlier task, or a prefetch on another thread, may have compiled (or be compiling)
+            // the same key: wait for it. A failed compilation yields null and is redone here, so the
+            // refusal is raised on this thread.
+            mine = new CompletableFuture<>();
+            var existing = COMPILATIONS.putIfAbsent(key, mine);
+            if (existing != null) {
+                mine = null;
+                compiled = existing.join();
+                if (compiled != null && compiled.taskInSource() && !compiled.task().equals(taskId)) {
+                    compiled = null; // the source names its task (a device launch): compile for this one
+                }
+            }
+        }
+        if (compiled != null) {
             REUSED.incrementAndGet();
             if (VERBOSE) {
                 System.out.printf("[TC] reused %s (same method and facts as an earlier task)%n", name);
             }
             return Optional.of(compiled);
         }
-        var result = compileNew(name, owner, loader, key.method().getName(), descriptor, key.target(), options, key.facts());
-        if (result.isPresent() && MEMOIZE) {
-            COMPILATIONS.put(key, result.get());
+        Optional<Compiled> result = Optional.empty();
+        try {
+            result = compileNew(name, owner, loader, key.method().getName(), descriptor, key.target(), options, key.facts());
+            return result;
+        } finally {
+            if (mine != null) {
+                mine.complete(result.orElse(null));
+                if (result.isEmpty()) {
+                    COMPILATIONS.remove(key, mine);
+                } else if (COMPILATIONS.size() > MAX_COMPILATIONS) {
+                    // Bounded: drop finished entries (running ones are being waited for).
+                    COMPILATIONS.values().removeIf(CompletableFuture::isDone);
+                }
+            }
         }
-        return result;
     }
 
     /**
@@ -272,9 +297,23 @@ public final class TcHook {
 
     private static Optional<Compiled> compileNew(String name, Class<?> owner, ClassLoader loader, String methodName, String descriptor, TargetCaps target, TcOptions options,
             List<ValueSpecialisation.Fact> facts) {
+        var live = Frontend.BytecodeSource.classLoader(loader);
+        var diskKey = TcDiskCache.key(owner.getName(), methodName, descriptor, target, options, facts);
+        if (diskKey.isPresent()) {
+            long start = System.nanoTime();
+            var cached = TcDiskCache.load(diskKey.get(), live);
+            if (cached.isPresent()) {
+                FROM_DISK.incrementAndGet();
+                if (VERBOSE) {
+                    System.out.printf("[TC] loaded %s from the TC cache in %.2f ms%n", name, (System.nanoTime() - start) / 1e6);
+                }
+                return cached;
+            }
+        }
+        var recording = diskKey.isPresent() ? new TcDiskCache.Recording(live) : null;
         TcCompiler.Compilation c;
         try {
-            c = TcCompiler.compileJava(Frontend.BytecodeSource.classLoader(loader), owner.getName(), methodName, descriptor, target, options, facts);
+            c = TcCompiler.compileJava(recording != null ? recording : live, owner.getName(), methodName, descriptor, target, options, facts);
         } catch (RuntimeException | StackOverflowError e) {
             // An internal TC failure becomes a diagnostic, reported like any other.
             if (VERBOSE) {
@@ -294,7 +333,11 @@ public final class TcHook {
             System.out.printf("[TC] compiled %s in %.2f ms%n", name, c.nanos() / 1e6);
         }
         boolean taskInSource = c.source().contains(uk.ac.manchester.tornado.tc.codegen.CEmitter.DEVICE_LAUNCH_LABEL);
-        return Optional.of(new Compiled(c.source(), c.entryName(), c.nanos(), c.domain(), c.atomics(), c.features(), options.task(), taskInSource));
+        var compiled = new Compiled(c.source(), c.entryName(), c.nanos(), c.domain(), c.atomics(), c.features(), options.task(), taskInSource);
+        if (recording != null) {
+            TcDiskCache.store(diskKey.get(), recording.reads(), compiled);
+        }
+        return Optional.of(compiled);
     }
 
     /** The kernel for one task: the launch domain depends on the task's thread count, not only on the code. */
@@ -390,6 +433,6 @@ public final class TcHook {
         var reasons = new TreeMap<String, Integer>();
         REFUSED.forEach((k, v) -> reasons.put(k, v.get()));
         int refused = reasons.values().stream().mapToInt(Integer::intValue).sum();
-        System.out.println("[TC] kernels compiled by TC: " + COMPILED.get() + ", reused: " + REUSED.get() + ", refused: " + refused + " " + reasons + ", generic in varying scalars: " + GENERIC.get());
+        System.out.println("[TC] kernels compiled by TC: " + COMPILED.get() + ", reused: " + REUSED.get() + ", from the TC cache: " + FROM_DISK.get() + ", refused: " + refused + " " + reasons + ", generic in varying scalars: " + GENERIC.get());
     }
 }
