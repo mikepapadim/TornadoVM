@@ -310,6 +310,19 @@ public class TcCompilerTest {
         assertEquals(100, c.domain().get(0).upper());
     }
 
+    /** A @Parallel bound that is a scalar holder gives a launch domain over that parameter, not an error. */
+    @Test
+    public void scalarHolderBoundIsARuntimeDomain() {
+        var unknown = new uk.ac.manchester.tornado.tc.tornado.ValueSpecialisation.Fact.Unknown();
+        var c = review("runtimeBound", java.util.List.of(new uk.ac.manchester.tornado.tc.tornado.ValueSpecialisation.Fact.Length(1024), unknown));
+        assertTrue(c.succeeded(), c.diagnostics().toString());
+        assertEquals(java.util.List.of(new uk.ac.manchester.tornado.tc.tornado.ParallelLoopLowering.Domain(0, 0, 1, 0, 1)), c.domain());
+        assertEquals(500, c.domain().get(0).at(500).upper());
+        var inclusive = review("runtimeBoundInclusive", java.util.List.of(new uk.ac.manchester.tornado.tc.tornado.ValueSpecialisation.Fact.Length(1024), unknown));
+        assertTrue(inclusive.succeeded(), inclusive.diagnostics().toString());
+        assertEquals(java.util.List.of(new uk.ac.manchester.tornado.tc.tornado.ParallelLoopLowering.Domain(0, 2, 2, 1, 1)), inclusive.domain());
+    }
+
     /** A reduction into out[1] is refused, not lowered into the partials. */
     /** A work-group reduction is an IR tree the dialect prints like any loop, sized from TargetCaps. */
     @Test

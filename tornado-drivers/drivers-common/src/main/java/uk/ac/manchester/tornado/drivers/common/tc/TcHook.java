@@ -39,6 +39,7 @@ import uk.ac.manchester.tornado.api.exceptions.TornadoDeviceMMANotSupported;
 import uk.ac.manchester.tornado.runtime.domain.DomainTree;
 import uk.ac.manchester.tornado.runtime.domain.IntDomain;
 import uk.ac.manchester.tornado.api.exceptions.TornadoInternalError;
+import uk.ac.manchester.tornado.api.types.scalars.TornadoScalar;
 import uk.ac.manchester.tornado.tc.debug.HtmlReport;
 import uk.ac.manchester.tornado.tc.frontend.Frontend;
 import uk.ac.manchester.tornado.tc.ir.Diagnostic;
@@ -49,6 +50,7 @@ import uk.ac.manchester.tornado.tc.ir.target.TargetCaps;
 import uk.ac.manchester.tornado.tc.runtime.TcCompiler;
 import uk.ac.manchester.tornado.tc.runtime.TcOptions;
 import uk.ac.manchester.tornado.tc.tornado.AtomicSlots;
+import uk.ac.manchester.tornado.tc.tornado.ParallelLoopLowering;
 import uk.ac.manchester.tornado.tc.tornado.ValueSpecialisation;
 
 /**
@@ -147,8 +149,13 @@ public final class TcHook {
         }
     }
 
-    /** A kernel compiled by TC. */
-    public record Kernel(byte[] source, String entryName, Optional<DomainTree> domain, long nanos, AtomicSlots.Info atomics, KernelFeatures features) {
+    /**
+     * A kernel compiled by TC. {@code domain} is the launch domain for the arguments it was compiled
+     * with; {@code launchDomain}, when not null, gives it for the arguments of a later launch (a
+     * {@code @Parallel} bound that is a scalar holder, whose value changes between launches).
+     */
+    public record Kernel(byte[] source, String entryName, Optional<DomainTree> domain, long nanos, AtomicSlots.Info atomics, KernelFeatures features,
+            java.util.function.Function<Object[], Optional<DomainTree>> launchDomain) {
     }
 
     private TcHook() {
@@ -200,7 +207,7 @@ public final class TcHook {
         if (!varying.isEmpty()) {
             var generic = generic(name, owner, loader, descriptor, options, key, varying, scalars, taskId);
             if (generic.isPresent()) {
-                return kernel(name, generic.get(), facts, numThreads);
+                return kernel(name, generic.get(), facts, numThreads, arguments);
             }
         }
         var result = compileOrReuse(name, owner, loader, descriptor, options, key, taskId);
@@ -214,7 +221,7 @@ public final class TcHook {
                 }
             }
         }
-        return kernel(name, result.get(), facts, numThreads);
+        return kernel(name, result.get(), facts, numThreads, arguments);
     }
 
     /** The memoised compilation for {@code key}, or a new one. */
@@ -252,7 +259,7 @@ public final class TcHook {
             result = Optional.empty();
         }
         synchronized (scalars) {
-            if (result.isEmpty() || (scalars.domain != null && !scalars.domain.equals(result.get().domain()))) {
+            if (result.isEmpty() || (scalars.domain != null && !launchesAlike(scalars.domain, result.get().domain()))) {
                 scalars.specialiseAlways = true;
                 COMPILATIONS.remove(genericKey);
                 if (VERBOSE) {
@@ -268,6 +275,25 @@ public final class TcHook {
             }
         }
         return result;
+    }
+
+    /**
+     * Whether a generic kernel launches like the specialised one: the same domains, where a runtime
+     * bound (a varying scalar that is a {@code @Parallel} bound) stands for any value of it.
+     */
+    private static boolean launchesAlike(List<ParallelLoopLowering.Domain> specialised, List<ParallelLoopLowering.Domain> generic) {
+        if (specialised.size() != generic.size()) {
+            return false;
+        }
+        for (int i = 0; i < specialised.size(); i++) {
+            var s = specialised.get(i);
+            var g = generic.get(i);
+            boolean same = g.isRuntime() ? s.dim() == g.dim() && s.offset() == g.offset() && s.step() == g.step() : s.equals(g);
+            if (!same) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static Optional<Compiled> compileNew(String name, Class<?> owner, ClassLoader loader, String methodName, String descriptor, TargetCaps target, TcOptions options,
@@ -298,12 +324,44 @@ public final class TcHook {
     }
 
     /** The kernel for one task: the launch domain depends on the task's thread count, not only on the code. */
-    private static Optional<Kernel> kernel(String name, Compiled c, List<ValueSpecialisation.Fact> facts, long numThreads) {
+    private static Optional<Kernel> kernel(String name, Compiled c, List<ValueSpecialisation.Fact> facts, long numThreads, Object[] arguments) {
+        if (c.domain().stream().noneMatch(ParallelLoopLowering.Domain::isRuntime)) {
+            return domainTree(name, c.domain(), facts, numThreads).map(domain -> new Kernel(c.source().getBytes(StandardCharsets.UTF_8), c.entryName(), domain, c.nanos(), c.atomics(), c.features(), null));
+        }
+        java.util.function.Function<Object[], Optional<DomainTree>> launchDomain = args -> atLaunch(c.domain(), args).flatMap(d -> domainTree(name, d, facts, numThreads).flatMap(t -> t));
+        var domain = launchDomain.apply(arguments);
+        if (domain.isEmpty()) {
+            return reject(name, new Diagnostic("TC-E3103", "the bound of a @Parallel loop is a task argument that is not a scalar", "", Loc.UNKNOWN));
+        }
+        return Optional.of(new Kernel(c.source().getBytes(StandardCharsets.UTF_8), c.entryName(), domain, c.nanos(), c.atomics(), c.features(), launchDomain));
+    }
+
+    /** The domains with each runtime bound replaced by its argument's value at this launch; empty when one is not a scalar. */
+    private static Optional<List<ParallelLoopLowering.Domain>> atLaunch(List<ParallelLoopLowering.Domain> domains, Object[] arguments) {
+        var result = new java.util.ArrayList<ParallelLoopLowering.Domain>();
+        for (var d : domains) {
+            if (!d.isRuntime()) {
+                result.add(d);
+                continue;
+            }
+            Object argument = d.upperParameter() < arguments.length ? arguments[d.upperParameter()] : null;
+            Number value = argument instanceof TornadoScalar holder ? holder.value() : argument instanceof Number n ? n : null;
+            if (value == null) {
+                return Optional.empty();
+            }
+            // An empty or negative range launches nothing useful: one thread, which leaves the loop at once.
+            result.add(d.at(Math.max(value.longValue(), d.offset() + 1 - d.upper())));
+        }
+        return Optional.of(result);
+    }
+
+    /** The runtime's launch domain for TC's domains (empty optional inside when there are none); empty when rejected. */
+    private static Optional<Optional<DomainTree>> domainTree(String name, List<ParallelLoopLowering.Domain> domains, List<ValueSpecialisation.Fact> facts, long numThreads) {
         Optional<DomainTree> domain = Optional.empty();
-        if (!c.domain().isEmpty()) {
-            var tree = new DomainTree(c.domain().size());
+        if (!domains.isEmpty()) {
+            var tree = new DomainTree(domains.size());
             boolean reduction = facts.stream().anyMatch(f -> f instanceof ValueSpecialisation.Fact.Reduce);
-            for (var d : c.domain()) {
+            for (var d : domains) {
                 // IntDomain's third value is the number of threads. A reduction launches the runtime's count
                 // (a power of two; its partial slots are sized for it), whatever the loop's start.
                 long upper = reduction && d.dim() == 0 && numThreads > 0 ? numThreads : d.upper();
@@ -316,7 +374,7 @@ public final class TcHook {
             }
             domain = Optional.of(tree);
         }
-        return Optional.of(new Kernel(c.source().getBytes(StandardCharsets.UTF_8), c.entryName(), domain, c.nanos(), c.atomics(), c.features()));
+        return Optional.of(domain);
     }
 
     /** -Dtornado.tc.report=html: every stage of one compilation, refused ones included, in one page. */

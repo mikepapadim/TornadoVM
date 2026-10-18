@@ -33,6 +33,8 @@ import java.util.BitSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.function.Function;
 
 import uk.ac.manchester.tornado.api.common.Access;
 import uk.ac.manchester.tornado.api.common.TornadoEvents;
@@ -52,6 +54,7 @@ public class TaskDataContext extends AbstractRTContext {
     private final int localSize;
     protected Access[] argumentsAccess;
     protected DomainTree domain;
+    private Function<Object[], Optional<DomainTree>> launchDomain;
     private long[] globalOffset;
     private long[] globalWork;
     private long[] localWork;
@@ -171,6 +174,31 @@ public class TaskDataContext extends AbstractRTContext {
 
     public DomainTree getDomain() {
         return domain;
+    }
+
+    /**
+     * Gives the launch domain for the task's arguments at a launch, for a kernel whose {@code @Parallel}
+     * bound is a runtime value (a scalar holder); null for a domain fixed at compilation.
+     */
+    public void setLaunchDomain(Function<Object[], Optional<DomainTree>> launchDomain) {
+        this.launchDomain = launchDomain;
+    }
+
+    /**
+     * Re-derives the launch domain from {@code arguments} when it has a runtime bound, and when it changed,
+     * recomputes the global and local work at the next submit (sizes set by the user are kept).
+     */
+    public void refreshLaunchDomain(Object[] arguments) {
+        if (launchDomain == null) {
+            return;
+        }
+        launchDomain.apply(arguments).ifPresent(tree -> {
+            if (!tree.toString().equals(domain.toString())) { // DomainTree has no equals; its text lists every domain
+                inspectGlobalWork();
+                inspectLocalWork();
+                setDomain(tree);
+            }
+        });
     }
 
     public void setDomain(final DomainTree value) {

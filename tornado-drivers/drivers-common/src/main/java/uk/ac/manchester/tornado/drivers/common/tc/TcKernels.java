@@ -94,6 +94,7 @@ public final class TcKernels {
 
         profiler.start(ProfilerType.TASK_COMPILE_DRIVER_TIME, taskMeta.getId());
         kernel.domain().ifPresent(taskMeta::setDomain);
+        taskMeta.setLaunchDomain(kernel.launchDomain());
         // The runtime finds a task's atomics region through its compiled method.
         taskMeta.setCompiledGraph(method);
         var atomics = kernel.atomics();

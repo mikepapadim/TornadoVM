@@ -55,6 +55,7 @@ import uk.ac.manchester.tornado.api.memory.XPUBuffer;
 import uk.ac.manchester.tornado.api.profiler.ProfilerType;
 import uk.ac.manchester.tornado.api.profiler.TornadoProfiler;
 import uk.ac.manchester.tornado.api.runtime.TaskContextInterface;
+import uk.ac.manchester.tornado.api.types.scalars.TornadoScalar;
 import uk.ac.manchester.tornado.runtime.EmptyEvent;
 import uk.ac.manchester.tornado.runtime.common.BatchConfiguration;
 import uk.ac.manchester.tornado.runtime.common.KernelStackFrame;
@@ -1369,8 +1370,8 @@ public class TornadoVMInterpreter {
             final int argIndex = bytecodeResult.getInt();
 
             if (argType == TornadoVMBytecodes.PUSH_CONSTANT_ARGUMENT.value()) {
-                // Add a constant argument
-                stackFrame.addCallArgument(constants.get(argIndex), false);
+                // Add a constant argument; a scalar holder passes its value at this launch
+                stackFrame.addCallArgument(launchValue(constants.get(argIndex)), false);
             } else if (argType == TornadoVMBytecodes.PUSH_REFERENCE_ARGUMENT.value()) {
 
                 if (isHostOnlyContext(objects.get(argIndex))) {
@@ -1424,6 +1425,8 @@ public class TornadoVMInterpreter {
             dataContext.attachProfiler(timeProfiler);
             dataContext.setGridScheduler(gridScheduler);
             dataContext.setThreadInfoEnabled(graphExecutionContext.meta().isThreadInfoEnabled());
+            // A @Parallel bound that is a scalar holder: size this launch for the holder's value now.
+            dataContext.refreshLaunchDomain(task.getArguments());
 
             try {
                 int lastEvent = useDependencies
@@ -1444,6 +1447,11 @@ public class TornadoVMInterpreter {
         }
     }
 
+    /** A constant argument as launched: a scalar holder's current value, anything else as is. */
+    private static Object launchValue(Object constant) {
+        return constant instanceof TornadoScalar scalar ? scalar.value() : constant;
+    }
+
     private int executeLibraryLaunch(StringBuilder logBuilder, LibraryTask task, final int numArgs, final int eventId, final long batchThreads, int[] waitList) {
 
         if (batchThreads != 0) {
@@ -1460,7 +1468,7 @@ public class TornadoVMInterpreter {
             final byte argType = bytecodeResult.get();
             final int argIndex = bytecodeResult.getInt();
             if (argType == TornadoVMBytecodes.PUSH_CONSTANT_ARGUMENT.value()) {
-                callArgs[i] = constants.get(argIndex);
+                callArgs[i] = launchValue(constants.get(argIndex));
             } else if (argType == TornadoVMBytecodes.PUSH_REFERENCE_ARGUMENT.value()) {
                 final DataObjectState globalState = resolveGlobalObjectState(argIndex);
                 final XPUDeviceBufferState objectState = globalState.getDeviceBufferState(interpreterDevice);

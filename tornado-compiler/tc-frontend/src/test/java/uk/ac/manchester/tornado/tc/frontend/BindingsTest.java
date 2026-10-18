@@ -20,6 +20,7 @@
  */
 package uk.ac.manchester.tornado.tc.frontend;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.invoke.MethodType;
@@ -64,6 +65,15 @@ public class BindingsTest {
             }
             assertTrue(missing.isEmpty(), "bindings without a matching API member: " + missing);
         }
+    }
+
+    /** A scalar holder parameter is its primitive in a kernel: the runtime passes the holder's value. */
+    @Test
+    public void scalarHoldersAreTheirPrimitive() {
+        assertEquals(uk.ac.manchester.tornado.tc.ir.Type.I32, Bindings.type("Luk/ac/manchester/tornado/api/types/scalars/IntScalar;"));
+        assertEquals(uk.ac.manchester.tornado.tc.ir.Type.I64, Bindings.type("Luk/ac/manchester/tornado/api/types/scalars/LongScalar;"));
+        assertEquals(uk.ac.manchester.tornado.tc.ir.Type.F32, Bindings.type("Luk/ac/manchester/tornado/api/types/scalars/FloatScalar;"));
+        assertEquals(uk.ac.manchester.tornado.tc.ir.Type.F64, Bindings.type("Luk/ac/manchester/tornado/api/types/scalars/DoubleScalar;"));
     }
 
     private static boolean hasMethod(ClassLoader loader, String owner, String name, String descriptor) throws ClassNotFoundException {
