@@ -150,6 +150,24 @@ public class TornadoExecutionContext {
         return constants.size() - 1;
     }
 
+    /**
+     * Records a primitive task argument in a slot of its own, so that {@link #replaceScalar} changes
+     * this argument only, even when another argument has an equal value.
+     */
+    public int insertScalar(Object value) {
+        constants.add(value);
+        return constants.size() - 1;
+    }
+
+    /** Replaces the value in a slot made by {@link #insertScalar}. */
+    public void replaceScalar(int slot, Object value) {
+        constants.set(slot, value);
+    }
+
+    public Object getConstant(int slot) {
+        return constants.get(slot);
+    }
+
     public int insertVariable(Object parameter, Access access) {
         int index;
         if (parameter.getClass().isPrimitive() || RuntimeUtilities.isBoxedPrimitiveClass(parameter.getClass())) {

@@ -242,6 +242,10 @@ public class ImmutableTaskGraph {
         taskGraph.withCompilerFlags(backendType, compilerFlags);
     }
 
+    boolean withScalar(String taskName, int argumentIndex, Object value) {
+        return taskGraph.withScalar(taskName, argumentIndex, value);
+    }
+
     void withGridScheduler(GridScheduler gridScheduler) {
         taskGraph.withGridScheduler(gridScheduler);
     }

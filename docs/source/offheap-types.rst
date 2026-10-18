@@ -198,3 +198,18 @@ A holder can also bound a ``@Parallel`` loop. The compiler records the bound as 
     plan.execute();
     length.set(1024);   // and this one 1024
     plan.execute();
+
+To keep a plain primitive in the kernel instead, change it through the execution plan with ``withScalar``. Give the task as ``"graphName.taskName"``, the argument's position in ``task(...)``, and the new value boxed as the original (``Integer`` for an ``int``):
+
+.. code-block:: java
+
+    TaskGraph taskGraph = new TaskGraph("s0")
+            .task("t0", Example::addOffset, in, out, 1)     // int offset
+            .transferToHost(DataTransferMode.EVERY_EXECUTION, out);
+    try (TornadoExecutionPlan plan = new TornadoExecutionPlan(taskGraph.snapshot())) {
+        for (int step = 0; step < 100; step++) {
+            plan.withScalar("s0.t0", 2, step).execute();
+        }
+    }
+
+The compiler treats a primitive as a constant and may fold it into the kernel, so the first new values each compile the task again. A value seen before reuses its kernel. Once an argument has taken a few different values (``-Dtornado.tc.varyingScalars``, default 3), the kernel is compiled once with the argument as a runtime value, and later changes need no compilation. A primitive that bounds a ``@Parallel`` loop works the same way: each launch is sized for its value. Use a holder when the value changes from the first execution on. Use ``withScalar`` when the kernel should keep its primitive signature, or when the value changes rarely and its constant should stay folded.

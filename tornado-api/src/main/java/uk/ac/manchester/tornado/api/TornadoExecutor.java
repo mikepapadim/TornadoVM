@@ -335,6 +335,14 @@ class TornadoExecutor {
         immutableTaskGraphList.forEach(immutableTaskGraph -> immutableTaskGraph.withCompilerFlags(backendType, compilerFlags));
     }
 
+    boolean withScalar(String taskName, int argumentIndex, Object value) {
+        boolean found = false;
+        for (ImmutableTaskGraph immutableTaskGraph : immutableTaskGraphList) {
+            found |= immutableTaskGraph.withScalar(taskName, argumentIndex, value);
+        }
+        return found;
+    }
+
     long getTotalBytesTransferred() {
         return immutableTaskGraphList.stream().mapToLong(ImmutableTaskGraph::getTotalBytesTransferred).sum();
     }

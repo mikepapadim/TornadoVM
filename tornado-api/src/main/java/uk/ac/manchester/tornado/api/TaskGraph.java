@@ -1252,6 +1252,10 @@ public class TaskGraph implements TaskGraphInterface {
         taskGraphImpl.withCompilerFlags(backendType, compilerFlags);
     }
 
+    boolean withScalar(String taskName, int argumentIndex, Object value) {
+        return taskGraphImpl.withScalar(taskName, argumentIndex, value);
+    }
+
     void withStrictFloatingPoint() {
         taskGraphImpl.withStrictFloatingPoint();
     }

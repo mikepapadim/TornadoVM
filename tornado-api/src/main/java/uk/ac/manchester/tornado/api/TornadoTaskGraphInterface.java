@@ -157,6 +157,12 @@ public interface TornadoTaskGraphInterface extends ProfilerInterface {
 
     void withCompilerFlags(TornadoVMBackendType backendType, String compilerFlags);
 
+    /**
+     * Sets scalar argument {@code argumentIndex} of task {@code taskName} (e.g. {@code "s0.t0"}) for the
+     * following executions. Returns false when this graph has no task of that name.
+     */
+    boolean withScalar(String taskName, int argumentIndex, Object value);
+
     /** Require the host's floating-point rounding for every task in this graph. */
     void withStrictFloatingPoint();
 

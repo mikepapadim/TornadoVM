@@ -48,6 +48,8 @@ public class CompilableTask implements SchedulableTask {
 
     private TornadoProfiler profiler;
     private boolean forceCompiler;
+    /** Scalar arguments changed (TornadoExecutionPlan.withScalar) since the last launch. */
+    private final java.util.BitSet changedScalars = new java.util.BitSet();
 
     public CompilableTask(ScheduleContext meta, String id, Method method, Object... args) {
         this.method = method;
@@ -178,6 +180,22 @@ public class CompilableTask implements SchedulableTask {
     @Override
     public void forceCompilation() {
         forceCompiler = true;
+    }
+
+    /**
+     * Sets scalar argument {@code index} to {@code value}. If the compiled kernel folded the old value
+     * into its code, it is compiled again before the next launch; otherwise the launch passes the new one.
+     */
+    public void setScalarArgument(int index, Object value) {
+        resolvedArgs[index] = value;
+        changedScalars.set(index);
+    }
+
+    /** The scalar arguments changed since the last call; clears them. */
+    public java.util.BitSet takeChangedScalars() {
+        var changed = (java.util.BitSet) changedScalars.clone();
+        changedScalars.clear();
+        return changed;
     }
 
     @Override

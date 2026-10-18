@@ -55,6 +55,8 @@ public class TaskDataContext extends AbstractRTContext {
     protected Access[] argumentsAccess;
     protected DomainTree domain;
     private Function<Object[], Optional<DomainTree>> launchDomain;
+    /** Argument positions whose scalar value the compiled kernel folded; null when not known (assume all). */
+    private BitSet foldedScalars;
     private long[] globalOffset;
     private long[] globalWork;
     private long[] localWork;
@@ -180,6 +182,15 @@ public class TaskDataContext extends AbstractRTContext {
      * Gives the launch domain for the task's arguments at a launch, for a kernel whose {@code @Parallel}
      * bound is a runtime value (a scalar holder); null for a domain fixed at compilation.
      */
+    public void setFoldedScalars(BitSet foldedScalars) {
+        this.foldedScalars = foldedScalars;
+    }
+
+    /** Whether the compiled kernel folded one of the {@code changed} scalar arguments (then it must be compiled again). */
+    public boolean foldsAnyOf(BitSet changed) {
+        return foldedScalars == null || foldedScalars.intersects(changed);
+    }
+
     public void setLaunchDomain(Function<Object[], Optional<DomainTree>> launchDomain) {
         this.launchDomain = launchDomain;
     }

@@ -74,6 +74,7 @@ import uk.ac.manchester.tornado.runtime.library.spi.LibraryInvocation;
 import uk.ac.manchester.tornado.runtime.library.spi.TornadoLibraryProvider;
 import uk.ac.manchester.tornado.runtime.library.spi.TornadoNativeStreamSupport;
 import uk.ac.manchester.tornado.runtime.profiler.TimeProfiler;
+import uk.ac.manchester.tornado.runtime.tasks.CompilableTask;
 import uk.ac.manchester.tornado.runtime.tasks.DataObjectState;
 import uk.ac.manchester.tornado.runtime.tasks.LibraryTask;
 import uk.ac.manchester.tornado.runtime.tasks.LocalObjectState;
@@ -1270,6 +1271,15 @@ public class TornadoVMInterpreter {
         if (isRecompilationNeededForLastBatch(taskIndex, task, batchThreads) || currentBatchUsesThreadId(currentBatch, indexInWrite)) {
             task.forceCompilation();
             installedCodes[globalToLocalTaskIndex(taskIndex)].invalidate();
+        }
+        // A scalar argument changed (withScalar): compile again only if the kernel folded its old value;
+        // a kernel that takes it as a runtime value gets the new one from the constant table at launch.
+        if (task instanceof CompilableTask compilable && installedCodes[globalToLocalTaskIndex(taskIndex)] != null) {
+            var changed = compilable.takeChangedScalars();
+            if (!changed.isEmpty() && (!(task.meta() instanceof TaskDataContext data) || data.foldsAnyOf(changed))) {
+                task.forceCompilation();
+                installedCodes[globalToLocalTaskIndex(taskIndex)].invalidate();
+            }
         }
 
         updateBatchThreads(task, batchThreads, indexInWrite, currentBatch);
