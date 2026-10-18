@@ -144,6 +144,9 @@ public class TornadoTaskGraph implements TornadoTaskGraphInterface {
             + "Prefer the Metal backend for absolute or cross-backend timing on Apple Silicon." + RESET;
     private static boolean appleOpenCLProfilerWarningShown = false;
 
+    /** The constant slot of every scalar argument: task id -> argument index -> slot. */
+    private final Map<String, Map<Integer, Integer>> scalarSlots = new HashMap<>();
+
     private static final Pattern SIZE_PATTERN = Pattern.compile("(\\d+)(MB|mg|gb|GB)");
     private static final CompileInfo COMPILE_ONLY = new CompileInfo(true, false);
     private static final CompileInfo COMPILE_AND_UPDATE = new CompileInfo(true, true);
@@ -342,6 +345,8 @@ public class TornadoTaskGraph implements TornadoTaskGraphInterface {
         newTaskGraph.hlBuffer = this.hlBuffer;
 
         newTaskGraph.executionContext = this.executionContext.clone();
+        // The clone keeps the constant table's order, so the scalar slots stay valid.
+        this.scalarSlots.forEach((task, slots) -> newTaskGraph.scalarSlots.put(task, new HashMap<>(slots)));
 
         newTaskGraph.taskPackages = Collections.unmodifiableList(this.taskPackages);
         newTaskGraph.argumentsLookUp = Collections.unmodifiableSet(this.argumentsLookUp);
@@ -521,6 +526,33 @@ public class TornadoTaskGraph implements TornadoTaskGraphInterface {
 
     public void withCompilerFlags(TornadoVMBackendType backendType, String compilerFlags) {
         executionContext.meta().setCompilerFlags(backendType, compilerFlags);
+    }
+
+    @Override
+    public boolean withScalar(String taskName, int argumentIndex, Object value) {
+        var slots = scalarSlots.get(taskName);
+        if (slots == null) {
+            return false;
+        }
+        Integer slot = slots.get(argumentIndex);
+        if (slot == null) {
+            throw new TornadoRuntimeException("[ERROR] Argument " + argumentIndex + " of task " + taskName + " is not a scalar (int, long, float, double, ...)");
+        }
+        Object current = executionContext.getConstant(slot);
+        if (value == null || value.getClass() != current.getClass()) {
+            throw new TornadoRuntimeException("[ERROR] Argument " + argumentIndex + " of task " + taskName + " is a " + current.getClass().getSimpleName() + "; got "
+                    + (value == null ? "null" : value.getClass().getSimpleName()));
+        }
+        if (value.equals(current)) {
+            return true;
+        }
+        executionContext.replaceScalar(slot, value);
+        for (SchedulableTask task : executionContext.getTasks()) {
+            if (task instanceof CompilableTask compilable && task.getId().equals(taskName)) {
+                compilable.setScalarArgument(argumentIndex, value);
+            }
+        }
+        return true;
     }
 
     @Override
@@ -891,7 +923,16 @@ public class TornadoTaskGraph implements TornadoTaskGraphInterface {
             // A scalar holder (IntScalar, ...) is passed the same way: by reference to the holder,
             // whose value the interpreter reads at every launch and passes by value.
             final boolean hostOnly = (task instanceof LibraryTask && arg instanceof CharSequence) || arg instanceof TornadoScalar;
-            index = hostOnly ? executionContext.insertConstant(arg) : executionContext.insertVariable(arg, accesses[i]);
+            final boolean scalar = !hostOnly && task instanceof CompilableTask && RuntimeUtilities.isBoxedPrimitiveClass(arg.getClass());
+            if (hostOnly) {
+                index = executionContext.insertConstant(arg);
+            } else if (scalar) {
+                // A slot of its own, so withScalar can change this argument alone.
+                index = executionContext.insertScalar(arg);
+                scalarSlots.computeIfAbsent(task.getId(), k -> new HashMap<>()).put(i, index);
+            } else {
+                index = executionContext.insertVariable(arg, accesses[i]);
+            }
             if (hostOnly || arg.getClass().isPrimitive() || RuntimeUtilities.isBoxedPrimitiveClass(arg.getClass())) {
                 hlBuffer.put(TornadoGraphBitcodes.LOAD_PRIM.index());
             } else {

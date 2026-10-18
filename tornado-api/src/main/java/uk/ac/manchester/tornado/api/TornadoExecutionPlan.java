@@ -54,6 +54,7 @@ import uk.ac.manchester.tornado.api.plan.types.WithPreCompilation;
 import uk.ac.manchester.tornado.api.plan.types.WithPrintKernel;
 import uk.ac.manchester.tornado.api.plan.types.WithProfiler;
 import uk.ac.manchester.tornado.api.plan.types.WithResetDevice;
+import uk.ac.manchester.tornado.api.plan.types.WithScalar;
 import uk.ac.manchester.tornado.api.plan.types.WithThreadInfo;
 import uk.ac.manchester.tornado.api.plan.types.WithWarmUpIterations;
 import uk.ac.manchester.tornado.api.plan.types.WithWarmUpTime;
@@ -605,6 +606,35 @@ public sealed class TornadoExecutionPlan implements AutoCloseable permits Execut
      * @since 1.0.7
      * @return {@link TornadoExecutionPlan}
      */
+    /**
+     * Sets a scalar task argument ({@code int}, {@code long}, {@code float}, {@code double}, ...) for the
+     * following executions, without building a new task graph. {@code argumentIndex} is the argument's
+     * position in the task's parameter list (the arguments given to {@code task(...)}), and
+     * {@code value} must be the same boxed type.
+     *
+     * <p>
+     * A primitive argument is a constant to the compiler, which may fold it into the kernel: the task
+     * is compiled again for the new value before its next launch. A value seen before reuses that
+     * kernel, and a scalar that keeps changing is compiled once as a runtime value
+     * ({@code tornado.tc.varyingScalars}). For a value that changes at every execution, a scalar holder
+     * ({@code IntScalar}, ...) is never folded and needs no recompilation.
+     * </p>
+     *
+     * @param taskName
+     *     the task, as {@code "graphName.taskName"}
+     * @param argumentIndex
+     *     the position of the scalar in the task's arguments
+     * @param value
+     *     the new value, boxed as the original ({@code Integer} for an {@code int} argument)
+     * @return {@link TornadoExecutionPlan}
+     */
+    public TornadoExecutionPlan withScalar(String taskName, int argumentIndex, Object value) {
+        if (!tornadoExecutor.withScalar(taskName, argumentIndex, value)) {
+            throw new TornadoRuntimeException("[ERROR] No task " + taskName + " in this execution plan");
+        }
+        return new WithScalar(this, taskName, argumentIndex, value);
+    }
+
     public TornadoExecutionPlan withCompilerFlags(TornadoVMBackendType backend, String compilerFlags) {
         tornadoExecutor.withCompilerFlags(backend, compilerFlags);
         return new WithCompilerFlags(this, compilerFlags);

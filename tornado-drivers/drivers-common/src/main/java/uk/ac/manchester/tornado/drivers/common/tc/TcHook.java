@@ -155,7 +155,7 @@ public final class TcHook {
      * {@code @Parallel} bound that is a scalar holder, whose value changes between launches).
      */
     public record Kernel(byte[] source, String entryName, Optional<DomainTree> domain, long nanos, AtomicSlots.Info atomics, KernelFeatures features,
-            java.util.function.Function<Object[], Optional<DomainTree>> launchDomain) {
+            java.util.function.Function<Object[], Optional<DomainTree>> launchDomain, java.util.BitSet foldedScalars) {
     }
 
     private TcHook() {
@@ -207,7 +207,9 @@ public final class TcHook {
         if (!varying.isEmpty()) {
             var generic = generic(name, owner, loader, descriptor, options, key, varying, scalars, taskId);
             if (generic.isPresent()) {
-                return kernel(name, generic.get(), facts, numThreads, arguments);
+                var folded = foldedScalars(facts);
+                folded.andNot(varying);
+                return kernel(name, generic.get(), facts, numThreads, arguments, folded);
             }
         }
         var result = compileOrReuse(name, owner, loader, descriptor, options, key, taskId);
@@ -221,7 +223,18 @@ public final class TcHook {
                 }
             }
         }
-        return kernel(name, result.get(), facts, numThreads, arguments);
+        return kernel(name, result.get(), facts, numThreads, arguments, foldedScalars(facts));
+    }
+
+    /** The argument positions whose scalar value is folded into a kernel compiled for {@code facts}. */
+    private static java.util.BitSet foldedScalars(List<ValueSpecialisation.Fact> facts) {
+        var folded = new java.util.BitSet();
+        for (int i = 0; i < facts.size(); i++) {
+            if (facts.get(i) instanceof ValueSpecialisation.Fact.Scalar) {
+                folded.set(i);
+            }
+        }
+        return folded;
     }
 
     /** The memoised compilation for {@code key}, or a new one. */
@@ -324,16 +337,16 @@ public final class TcHook {
     }
 
     /** The kernel for one task: the launch domain depends on the task's thread count, not only on the code. */
-    private static Optional<Kernel> kernel(String name, Compiled c, List<ValueSpecialisation.Fact> facts, long numThreads, Object[] arguments) {
+    private static Optional<Kernel> kernel(String name, Compiled c, List<ValueSpecialisation.Fact> facts, long numThreads, Object[] arguments, java.util.BitSet folded) {
         if (c.domain().stream().noneMatch(ParallelLoopLowering.Domain::isRuntime)) {
-            return domainTree(name, c.domain(), facts, numThreads).map(domain -> new Kernel(c.source().getBytes(StandardCharsets.UTF_8), c.entryName(), domain, c.nanos(), c.atomics(), c.features(), null));
+            return domainTree(name, c.domain(), facts, numThreads).map(domain -> new Kernel(c.source().getBytes(StandardCharsets.UTF_8), c.entryName(), domain, c.nanos(), c.atomics(), c.features(), null, folded));
         }
         java.util.function.Function<Object[], Optional<DomainTree>> launchDomain = args -> atLaunch(c.domain(), args).flatMap(d -> domainTree(name, d, facts, numThreads).flatMap(t -> t));
         var domain = launchDomain.apply(arguments);
         if (domain.isEmpty()) {
             return reject(name, new Diagnostic("TC-E3103", "the bound of a @Parallel loop is a task argument that is not a scalar", "", Loc.UNKNOWN));
         }
-        return Optional.of(new Kernel(c.source().getBytes(StandardCharsets.UTF_8), c.entryName(), domain, c.nanos(), c.atomics(), c.features(), launchDomain));
+        return Optional.of(new Kernel(c.source().getBytes(StandardCharsets.UTF_8), c.entryName(), domain, c.nanos(), c.atomics(), c.features(), launchDomain, folded));
     }
 
     /** The domains with each runtime bound replaced by its argument's value at this launch; empty when one is not a scalar. */
