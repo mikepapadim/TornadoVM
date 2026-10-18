@@ -184,7 +184,7 @@ plug in as a `Backend` service.
 | `tornado.tc.report=html` | a self-contained HTML report per kernel: bytecode, every stage, the source |
 | `tornado.tc.verify=each` | verify the IR after every pass and stage instead of once at the end (the default); names the pass that broke it |
 | `tornado.tc.memoize=false` | compile every task, even when an earlier one had the same method and facts |
-| `tornado.tc.varyingScalars=<n>` | a scalar argument that takes `n` (default 3) different values across tasks of one kernel is compiled as a runtime value; `0` specialises every value |
+| `tornado.tc.varyingScalars=<n>` | a scalar argument that takes `n` (default 3) different values across tasks of one kernel is compiled as a runtime value; `0` specialises every value. A scalar holder (`IntScalar`, ...) is always a runtime value; as a `@Parallel` bound it gives a runtime launch domain (`domain_param`), sized at each launch |
 | `--printKernel` (launcher flag) | print the generated source |
 
 ## Further reading

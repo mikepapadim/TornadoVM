@@ -152,3 +152,49 @@ Here is how the code above would need to be transformed to use the new data type
             input.set(i, input.get(i) + value);  // Use the set and get functions access data
         }
     }
+
+3. Scalar Parameters: Constants and Runtime Values
+-------------------------------------------------------------------
+
+A primitive task argument (``int``, ``long``, ``float``, ``double``) is a **constant**. Its value is read once, when the task is created, and the compiler may fold it into the kernel. That is the fastest code, but changing the value means building a new task graph, and each new value compiles a new kernel.
+
+When a value changes from one execution to the next (a step counter, a scale factor, an active length), pass a **scalar holder** instead: ``IntScalar``, ``LongScalar``, ``FloatScalar`` or ``DoubleScalar`` from ``uk.ac.manchester.tornado.api.types.scalars``.
+The kernel declares the holder type and reads it with ``get()``. The host changes it with ``set()`` between executions, and every launch passes the holder's value at that moment, by value, as the kernel parameter. No buffer, data transfer, graph rebuild or recompilation is involved:
+
+.. code-block:: java
+
+    public static void addOffset(IntArray in, IntArray out, IntScalar offset) {
+        for (@Parallel int i = 0; i < in.getSize(); i++) {
+            out.set(i, in.get(i) + offset.get());
+        }
+    }
+
+    IntScalar offset = new IntScalar(1);
+    TaskGraph taskGraph = new TaskGraph("s0")
+            .transferToDevice(DataTransferMode.FIRST_EXECUTION, in)
+            .task("t0", Example::addOffset, in, out, offset)
+            .transferToHost(DataTransferMode.EVERY_EXECUTION, out);
+
+    try (TornadoExecutionPlan plan = new TornadoExecutionPlan(taskGraph.snapshot())) {
+        for (int step = 0; step < 100; step++) {
+            offset.set(step);    // the next launch passes the new value
+            plan.execute();      // same kernel, no recompilation
+        }
+    }
+
+Holders are read-only on the device: a kernel cannot ``set`` them, and a holder cannot be transferred to the host. To return a scalar, use a one-element array.
+
+A holder can also bound a ``@Parallel`` loop. The compiler records the bound as a runtime launch domain, and each launch is sized for the holder's value at that moment, still from one compiled kernel:
+
+.. code-block:: java
+
+    public static void addToPrefix(IntArray out, IntScalar length, IntScalar value) {
+        for (@Parallel int i = 0; i < length.get(); i++) {
+            out.set(i, out.get(i) + value.get());
+        }
+    }
+
+    length.set(17);     // the next launch runs 17 threads
+    plan.execute();
+    length.set(1024);   // and this one 1024
+    plan.execute();

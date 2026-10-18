@@ -154,6 +154,14 @@ final class Bindings {
     }
 
     private static final Map<String, Type> BOXES = Map.of("java/lang/Integer", Type.I32, "java/lang/Long", Type.I64, "java/lang/Float", Type.F32, "java/lang/Double", Type.F64);
+    /**
+     * Scalar holders ({@code IntScalar}, ...): task arguments whose value changes between executions. The
+     * runtime passes the holder's value at each launch, so in a kernel a holder is its primitive and
+     * {@code get()} is that value.
+     */
+    static final String SCALARS = "uk/ac/manchester/tornado/api/types/scalars/";
+    private static final Map<String, Type> SCALAR_HOLDERS = Map.of(SCALARS + "IntScalar", Type.I32, SCALARS + "LongScalar", Type.I64, SCALARS + "FloatScalar", Type.F32, SCALARS + "DoubleScalar",
+            Type.F64);
 
     static final String ATOMIC_INTEGER = "java/util/concurrent/atomic/AtomicInteger";
 
@@ -204,6 +212,10 @@ final class Bindings {
         METHODS.put("java/lang/Long.valueOf(J)Ljava/lang/Long;", new Identity());
         METHODS.put("java/lang/Float.valueOf(F)Ljava/lang/Float;", new Identity());
         METHODS.put("java/lang/Double.valueOf(D)Ljava/lang/Double;", new Identity());
+        METHODS.put(SCALARS + "IntScalar.get()I", new Identity());
+        METHODS.put(SCALARS + "LongScalar.get()J", new Identity());
+        METHODS.put(SCALARS + "FloatScalar.get()F", new Identity());
+        METHODS.put(SCALARS + "DoubleScalar.get()D", new Identity());
         // Warp (SIMD group) operations: all lanes of the warp take part; not pure (never moved or merged).
         METHODS.put(KERNEL_CONTEXT + ".simdSum(F)F", new Intrinsic("tornado.simd.sum", Type.F32));
         METHODS.put(KERNEL_CONTEXT + ".simdShuffleDown(FI)F", new Intrinsic("tornado.simd.shuffle_down", Type.F32));
@@ -616,6 +628,9 @@ final class Bindings {
                 // Boxed scalars are their primitive (the runtime passes boxed task arguments as values).
                 if (BOXES.containsKey(cls)) {
                     yield BOXES.get(cls);
+                }
+                if (SCALAR_HOLDERS.containsKey(cls)) {
+                    yield SCALAR_HOLDERS.get(cls);
                 }
                 if (cls.startsWith(VECTOR_PACKAGE) && VECTORS.containsKey(cls.substring(VECTOR_PACKAGE.length()))) {
                     yield VECTORS.get(cls.substring(VECTOR_PACKAGE.length()));

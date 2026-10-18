@@ -29,6 +29,7 @@ import java.util.Map;
 import uk.ac.manchester.tornado.api.KernelContext;
 import uk.ac.manchester.tornado.api.annotations.Reduce;
 import uk.ac.manchester.tornado.api.types.arrays.TornadoNativeArray;
+import uk.ac.manchester.tornado.api.types.scalars.TornadoScalar;
 import uk.ac.manchester.tornado.runtime.common.FieldLayout;
 import uk.ac.manchester.tornado.tc.tornado.ObjectLayout;
 import uk.ac.manchester.tornado.tc.tornado.ValueSpecialisation;
@@ -62,6 +63,9 @@ final class TcArguments {
             } else if (reduced && argument != null && argument.getClass().isArray() && argument.getClass().getComponentType().isPrimitive()) {
                 // The same for a Java array (float[], int[], ...).
                 facts.add(new ValueSpecialisation.Fact.Reduce(java.lang.reflect.Array.getLength(argument)));
+            } else if (argument instanceof TornadoScalar) {
+                // Its value changes between launches: never folded into the kernel.
+                facts.add(new ValueSpecialisation.Fact.Unknown());
             } else if (argument instanceof TornadoNativeArray array) {
                 // In a batch each device buffer holds one chunk of batchThreads elements (with its
                 // header): lengths and indices are per chunk.

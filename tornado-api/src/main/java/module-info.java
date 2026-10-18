@@ -46,6 +46,7 @@ module tornado.api {
     opens uk.ac.manchester.tornado.api.types.images;
     exports uk.ac.manchester.tornado.api.types.images;
     exports uk.ac.manchester.tornado.api.types.utils;
+    exports uk.ac.manchester.tornado.api.types.scalars;
     opens uk.ac.manchester.tornado.api.types.utils;
     exports uk.ac.manchester.tornado.api.types.common;
     opens uk.ac.manchester.tornado.api.types.common;

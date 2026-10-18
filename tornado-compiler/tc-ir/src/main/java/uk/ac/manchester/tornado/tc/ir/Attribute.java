@@ -45,6 +45,7 @@ public record Attribute(String name, Immediates values) {
             def("parallel", Scope.BLOCK, "a @Parallel loop header; iv is the index of its induction-variable block argument", "iv"),
             def("grid", Scope.BLOCK, "a parallel loop lowered to a grid-stride loop over dimension dim", "dim"),
             def("domain", Scope.FUNCTION, "the launch domain of one dimension: offset, step and exclusive upper bound", "dim", "offset", "step", "upper"),
+            def("domain_param", Scope.FUNCTION, "a launch domain whose exclusive upper bound is a kernel parameter (a runtime value) plus upper", "dim", "offset", "step", "upper", "param"),
             def("atomic_slot", Scope.FUNCTION, "an AtomicInteger slot of the atomics region and its initial value", "slot", "init"),
             def("atomic_param", Scope.FUNCTION, "an AtomicInteger parameter and the slot it uses", "param", "slot"),
             def("contract", Scope.INST, "a floating-point op that may be contracted (FMA)"),

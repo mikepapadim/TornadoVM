@@ -151,8 +151,26 @@ public final class ParallelLoopLowering {
         return java.util.Optional.empty();
     }
 
-    /** A parallel dimension with constant bounds: {@code for (i = offset; i < upper; i += step)}. */
-    public record Domain(int dim, long offset, long step, long upper) {
+    /**
+     * A parallel dimension: {@code for (i = offset; i < upper; i += step)}. With {@code upperParameter >= 0}
+     * the bound is a runtime value, kernel parameter {@code upperParameter} (a scalar holder), and the
+     * exclusive upper bound is that parameter's value at the launch plus {@code upper}.
+     */
+    public record Domain(int dim, long offset, long step, long upper, int upperParameter) {
+
+        public Domain(int dim, long offset, long step, long upper) {
+            this(dim, offset, step, upper, -1);
+        }
+
+        /** Whether the bound is a runtime value, known only at each launch. */
+        public boolean isRuntime() {
+            return upperParameter >= 0;
+        }
+
+        /** This domain at a launch whose bound parameter has {@code value}. */
+        public Domain at(long value) {
+            return isRuntime() ? new Domain(dim, offset, step, value + upper) : this;
+        }
     }
 
     /**
@@ -164,13 +182,16 @@ public final class ParallelLoopLowering {
         for (var attribute : function.attributes()) {
             if (attribute.name().equals("domain")) {
                 result.add(new Domain(attribute.integer("dim"), attribute.longValue("offset"), attribute.longValue("step"), attribute.longValue("upper")));
+            } else if (attribute.name().equals("domain_param")) {
+                result.add(new Domain(attribute.integer("dim"), attribute.longValue("offset"), attribute.longValue("step"), attribute.longValue("upper"), attribute.integer("param")));
             }
         }
         // Sibling loops share a dimension: the launch covers the widest of them (each loop
         // grid-strides, so any thread count is correct; the widest avoids idle loops).
         var widest = new java.util.TreeMap<Integer, Domain>();
         for (var d : result) {
-            widest.merge(d.dim(), d, (a, b) -> threads(b) > threads(a) ? b : a);
+            // A constant domain is preferred to a runtime one: it needs no refresh at each launch.
+            widest.merge(d.dim(), d, (a, b) -> a.isRuntime() != b.isRuntime() ? (a.isRuntime() ? b : a) : threads(b) > threads(a) ? b : a);
         }
         return List.copyOf(widest.values());
     }
@@ -179,13 +200,30 @@ public final class ParallelLoopLowering {
         return d.step() == 0 ? 0 : (d.upper() - d.offset() + d.step() - 1) / d.step();
     }
 
-    /** Records offset, step and exclusive upper bound when all three are constants. */
+    /**
+     * Records offset, step and exclusive upper bound when all three are constants; with a constant
+     * offset and a positive constant step, a bound that is a kernel parameter (a scalar holder, whose
+     * value is known only at each launch) is recorded as {@code domain_param}. The loop grid-strides,
+     * so the kernel is correct for any thread count: the launch domain only sizes the grid.
+     */
     private static void recordDomain(CountedLoop loop, int dim) {
         var offset = loop.constantInit();
         var stride = loop.constantStep();
         var upper = loop.exclusiveUpper();
+        var function = loop.header().function();
         if (offset.isPresent() && stride.isPresent() && upper.isPresent()) {
-            loop.header().function().addAttribute(Attribute.of("domain", "dim", dim, "offset", offset.getAsLong(), "step", stride.getAsLong(), "upper", upper.getAsLong()));
+            function.addAttribute(Attribute.of("domain", "dim", dim, "offset", offset.getAsLong(), "step", stride.getAsLong(), "upper", upper.getAsLong()));
+        } else if (offset.isPresent() && stride.isPresent() && stride.getAsLong() > 0 && loop.exit().isPresent()) {
+            var exit = loop.exit().get();
+            int param = function.params().indexOf(exit.bound());
+            long adjust = switch (exit.predicate()) {
+                case SGE, SLT -> 0;
+                case SGT, SLE -> 1;
+                default -> -1;
+            };
+            if (param >= 0 && adjust >= 0) {
+                function.addAttribute(Attribute.of("domain_param", "dim", dim, "offset", offset.getAsLong(), "step", stride.getAsLong(), "upper", adjust, "param", param));
+            }
         }
     }
 

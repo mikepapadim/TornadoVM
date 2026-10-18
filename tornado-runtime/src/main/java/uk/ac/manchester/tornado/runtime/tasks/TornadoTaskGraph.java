@@ -104,6 +104,7 @@ import uk.ac.manchester.tornado.api.types.arrays.HalfFloatArray;
 import uk.ac.manchester.tornado.api.types.arrays.IntArray;
 import uk.ac.manchester.tornado.api.types.arrays.LongArray;
 import uk.ac.manchester.tornado.api.types.arrays.ShortArray;
+import uk.ac.manchester.tornado.api.types.scalars.TornadoScalar;
 import uk.ac.manchester.tornado.runtime.TornadoVM;
 import uk.ac.manchester.tornado.runtime.analyzer.MetaReduceCodeAnalysis;
 import uk.ac.manchester.tornado.runtime.analyzer.ReduceCodeAnalysis;
@@ -887,7 +888,9 @@ public class TornadoTaskGraph implements TornadoTaskGraphInterface {
             // reference to the Java object, instead of being serialised into a device buffer:
             // that serialisation is sized when first done, so a holder that later grows overflows
             // it, and it cannot represent the holder's byte[] at all.
-            final boolean hostOnly = task instanceof LibraryTask && arg instanceof CharSequence;
+            // A scalar holder (IntScalar, ...) is passed the same way: by reference to the holder,
+            // whose value the interpreter reads at every launch and passes by value.
+            final boolean hostOnly = (task instanceof LibraryTask && arg instanceof CharSequence) || arg instanceof TornadoScalar;
             index = hostOnly ? executionContext.insertConstant(arg) : executionContext.insertVariable(arg, accesses[i]);
             if (hostOnly || arg.getClass().isPrimitive() || RuntimeUtilities.isBoxedPrimitiveClass(arg.getClass())) {
                 hlBuffer.put(TornadoGraphBitcodes.LOAD_PRIM.index());
@@ -1222,6 +1225,10 @@ public class TornadoTaskGraph implements TornadoTaskGraphInterface {
             if (parameter instanceof Number) {
                 continue;
             }
+            // A scalar holder is passed by value at every launch: there is nothing to copy.
+            if (parameter instanceof TornadoScalar) {
+                continue;
+            }
 
             // Only add the object is the streamIn list if the data transfer mode is set to
             // EVERY_EXECUTION
@@ -1257,8 +1264,8 @@ public class TornadoTaskGraph implements TornadoTaskGraphInterface {
         for (Object parameter : objects) {
             if (parameter == null) {
                 throw new TornadoRuntimeException("[ERROR] null object passed into streamIn() in task-graph " + executionContext.getId());
-            } else if (parameter instanceof Number) {
-                throw new TornadoRuntimeException("[ERROR] Invalid object type (Number) passed into streamIn() in task-graph " + executionContext.getId());
+            } else if (parameter instanceof Number || parameter instanceof TornadoScalar) {
+                throw new TornadoRuntimeException("[ERROR] Invalid object type (" + parameter.getClass().getSimpleName() + ") passed into streamIn() in task-graph " + executionContext.getId());
             }
 
             // the accessor is set to READ_WRITE because the object is UNDER_DEMAND
@@ -1281,8 +1288,8 @@ public class TornadoTaskGraph implements TornadoTaskGraphInterface {
         for (Object parameter : objects) {
             if (parameter == null) {
                 throw new TornadoRuntimeException("[ERROR] null object passed into streamIn() in task-graph " + executionContext.getId());
-            } else if (parameter instanceof Number) {
-                throw new TornadoRuntimeException("[ERROR] Invalid object type (Number) passed into streamIn() in task-graph " + executionContext.getId());
+            } else if (parameter instanceof Number || parameter instanceof TornadoScalar) {
+                throw new TornadoRuntimeException("[ERROR] Invalid object type (" + parameter.getClass().getSimpleName() + ") passed into streamIn() in task-graph " + executionContext.getId());
             }
 
             // the accessor is set to READ_WRITE because the object is UNDER_DEMAND
@@ -1300,7 +1307,7 @@ public class TornadoTaskGraph implements TornadoTaskGraphInterface {
     }
 
     private boolean isANumber(Object parameter) {
-        return parameter instanceof Number;
+        return parameter instanceof Number || parameter instanceof TornadoScalar;
     }
 
     private boolean isAtomic(Object parameter) {
@@ -1759,7 +1766,7 @@ public class TornadoTaskGraph implements TornadoTaskGraphInterface {
     private boolean isArgumentIgnorable(Object parameter) {
         // TileContext, like KernelContext, exists to be intrinsified by the backend: it has no
         // device representation, so it is never transferred and must not be demanded here.
-        return parameter instanceof Number || parameter instanceof Boolean || parameter instanceof KernelContext || //
+        return parameter instanceof Number || parameter instanceof Boolean || parameter instanceof KernelContext || parameter instanceof TornadoScalar || //
                 parameter instanceof TileContext || //
                 parameter instanceof IntArray || parameter instanceof FloatArray || //
                 parameter instanceof DoubleArray || parameter instanceof LongArray || //

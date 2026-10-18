@@ -26,6 +26,7 @@ import uk.ac.manchester.tornado.api.annotations.Reduce;
 import uk.ac.manchester.tornado.api.types.arrays.FloatArray;
 import uk.ac.manchester.tornado.api.types.arrays.IntArray;
 import uk.ac.manchester.tornado.api.types.matrix.Matrix2DFloat;
+import uk.ac.manchester.tornado.api.types.scalars.IntScalar;
 import uk.ac.manchester.tornado.api.types.vectors.Float4;
 
 /** Kernels that once compiled wrong or were refused, kept as regression tests. */
@@ -50,6 +51,20 @@ public final class RegressionKernels {
         }
     }
     // Two sibling parallel loops
+    /** A @Parallel loop bounded by a scalar holder: a runtime value, read at each launch. */
+    public static void runtimeBound(IntArray a, IntScalar n) {
+        for (@Parallel int i = 0; i < n.get(); i++) {
+            a.set(i, i);
+        }
+    }
+
+    /** The same bound with {@code <=}: the exclusive upper bound is the value plus one. */
+    public static void runtimeBoundInclusive(IntArray a, IntScalar last) {
+        for (@Parallel int i = 2; i <= last.get(); i += 2) {
+            a.set(i, i);
+        }
+    }
+
     public static void siblings(IntArray a, IntArray b) {
         for (@Parallel int i = 0; i < a.getSize(); i++) {
             a.set(i, a.get(i) + 1);
