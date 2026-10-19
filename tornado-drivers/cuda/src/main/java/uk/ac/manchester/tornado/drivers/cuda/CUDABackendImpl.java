@@ -235,6 +235,11 @@ public final class CUDABackendImpl implements TornadoAcceleratorBackend {
         return checkAndInitBackend(platform, device);
     }
 
+    /** Whether the device's context and memory regions exist yet (getDeviceBackend creates them). */
+    public boolean isDeviceInitialised(int platform, int device) {
+        return backends[platform][device].isInitialised();
+    }
+
     public int getNumDevices(int platform) {
         try {
             return backends[platform].length;

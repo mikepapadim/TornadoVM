@@ -47,6 +47,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
@@ -1375,13 +1377,27 @@ public class TornadoTaskGraph implements TornadoTaskGraphInterface {
             return;
         }
         setupProfiler();
-        getDevice().getDeviceContext().setResetToFalse(executionPackage.getExecutionPlanId());
+        // The device's context (CUDA: the driver's primary context and TornadoVM's memory regions,
+        // ~70 ms on an RTX 4090) is created in the background while the bytecode is built and the
+        // compilations start: compiling a kernel does not need it, only installing it does.
+        final TornadoDevice device = getDevice();
+        CompletableFuture<Void> context = CompletableFuture.runAsync(device::getDeviceContext, task -> {
+            Thread thread = new Thread(task, "tornado-device-context");
+            thread.setDaemon(true);
+            thread.start();
+        });
         // Builds the TornadoVM bytecode (and the per-task contexts) now; withPreCompilation and
         // execute find it built.
         compileComputeGraphToTornadoVMBytecode();
         executionPlanId = executionPackage.getExecutionPlanId();
         executionContext.setExecutionPlanId(executionPlanId);
         vm.prefetchCompilations();
+        try {
+            context.join();
+        } catch (CompletionException e) {
+            throw e.getCause() instanceof RuntimeException r ? r : e;
+        }
+        device.getDeviceContext().setResetToFalse(executionPackage.getExecutionPlanId());
     }
 
     private boolean hasReduceParameters() {
