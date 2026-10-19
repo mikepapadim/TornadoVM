@@ -230,11 +230,13 @@ public class CUDATornadoDevice implements TornadoXPUDevice, TornadoNativeStreamS
         if (!(task instanceof CompilableTask executable)) {
             return;
         }
-        final CUDADeviceContextInterface deviceContext = getDeviceContext();
-        if (deviceContext.isCached(executionPlanId, task.getId(), executable.getMethod().getName())) {
+        // The device's context may still be being created (TornadoTaskGraph.prefetchCompilations starts
+        // it in the background): the code cache is consulted only if it exists, and the worker that
+        // compiled the kernel gets the context when it needs it.
+        if (driver.isDeviceInitialised(platformIndex, deviceIndex) && getDeviceContext().isCached(executionPlanId, task.getId(), executable.getMethod().getName())) {
             return;
         }
-        TcKernels.prefetch(executable, tcTarget(), (entry, source) -> deviceContext.prefetchSource(executionPlanId, executable.meta(), entry, source));
+        TcKernels.prefetch(executable, tcTarget(), (entry, source) -> getDeviceContext().prefetchSource(executionPlanId, executable.meta(), entry, source));
     }
 
     private TornadoInstalledCode compileTask(long executionPlanId, SchedulableTask task) {
@@ -251,7 +253,8 @@ public class CUDATornadoDevice implements TornadoXPUDevice, TornadoNativeStreamS
     /** What TC may use on this device, from the device's own queries (TC never queries devices itself). */
     @Override
     public TargetCaps tcTarget() {
-        if (!(getDeviceContext().getDevice() instanceof CUDADevice d)) {
+        // The device's own properties, known from discovery: no context is needed (or created) for them.
+        if (!(device instanceof CUDADevice d)) {
             return TargetCaps.CUDA_SM89.withArrayHeaderBytes((int) TornadoNativeArray.ARRAY_HEADER);
         }
         int cc = d.getComputeCapabilityMajor() * 10 + d.getComputeCapabilityMinor();
