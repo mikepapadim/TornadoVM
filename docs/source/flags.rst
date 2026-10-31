@@ -488,6 +488,12 @@ Setting one of these prints a warning and has no effect.
      - TornadoVM always behaves as with its default (true).
    * - ``-Dtornado.clean.atomics.space``
      - TornadoVM always behaves as with its default (false).
+   * - ``-Dtornado.cuda.batchGlobalLoads``
+     - It had no effect. Its reader went with the Graal compiler.
+   * - ``-Dtornado.cuda.tile.hints``
+     - It had no effect. Its reader went with the Graal compiler.
+   * - ``-Dtornado.cuda.tile.unrollKLoop``
+     - It had no effect. Its reader went with the Graal compiler.
    * - ``-Dtornado.debug.executionTime``
      - It had no effect. Use tornado.profiler.
    * - ``-Dtornado.driver``
